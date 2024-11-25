@@ -1,3 +1,11 @@
+"""
+Number of CNN layers: (by changing modules) VGG16-19, ResNet18-34-50
+● Number of RNN layers: default 1
+● Type of RNN cells: LSTM vs GRU
+● Prediction method: character-level, word-level, wordpiece-level
+● Optimizer: SGD, Adam, AdamW, …
+● Learning rate, learning rate decay, early stopping
+"""
 configs = [
     {
         # Configuration 0
