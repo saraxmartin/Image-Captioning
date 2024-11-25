@@ -3,6 +3,7 @@ import torch.optim as optim
 from torchvision import transforms, models
 import pandas as pd
 
+from utils.model import Model
 import config
 from utils.dataloader import Flickr30kDataset
 from utils.train_test import initialize_storage, train_model, test_model
@@ -10,7 +11,7 @@ from utils.train_test import initialize_storage, train_model, test_model
 
 # GLOBAL VARIABLES
 IMAGES_DIR = './data/images/'
-CAPTIONS_DIR = './data/captions.csv'
+CAPTIONS_DIR = './data/captions_cleaned.csv'
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
 BATCH_SIZE = 32
 NUM_EPOCHS = 20
