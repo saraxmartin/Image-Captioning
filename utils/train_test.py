@@ -9,6 +9,11 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 RESULTS_CSV = "results/results.csv"
 
 def initialize_storage():
+    # Ensure the directories exists
+    os.makedirs("results/", exist_ok=True)
+    os.makedirs("results/statistics", exist_ok=True)
+    os.makedirs("utils/saved_models", exist_ok=True)
+    # Define header of the file
     header = ["config","model","type","epoch","loss","bleu","rouge","meteor"]
     # Check if CSV file exists; if not, create it with the header
     if not os.path.isfile(RESULTS_CSV):
