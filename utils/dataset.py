@@ -76,7 +76,8 @@ class Flickr30kDataset(Dataset):
         sent = re.sub("[0-9]","",sent)     # digits
         sent = re.sub("https?://\S+","",sent)     # URLs
         sent = re.sub("@\S+","",sent)     # @'s
-        sent = re.sub("[+-/*,':%$#&!_<>(){}^]","",sent)     # special characters  
+        sent = re.sub("[+-/*,':%$#&!_<>(){}^]","",sent)     # special characters
+        sent = re.sub(chr(34), "", sent)  # double quote ""  
         sent = re.sub(" +"," ",sent)     # extra spaces
         words = nltk.word_tokenize(sent)
         stop_words = set(nltk.corpus.stopwords.words("english"))
