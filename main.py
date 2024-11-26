@@ -5,7 +5,7 @@ from torchvision import transforms, models
 import pandas as pd
 
 import config
-from utils.dataloader import Flickr30kDataset
+from utils.dataset import Flickr30kDataset
 from utils.train_test import initialize_storage, train_model, test_model
 from utils.model import Model
 
