@@ -16,89 +16,6 @@ from collections import Counter
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="seaborn")
 
-class Flickr30kDataset(Dataset):
-    def __init__(self, captions_df, images_dir, transform=None, type="char"):
-        self.captions_df = captions_df
-        self.image_dir = images_dir
-        self.transform = transform
-        # Save data properties for statistics
-        self.data_properties = {'image_width': [],
-                                'image_height': [],
-                                'title_length': [],
-                                'lexicon': set()}
-        self.all_words = []
-        # Save images and its captions
-        self.images = []
-        self.captions = {}
-        processed_images = set()  # set to track already processed images
-        
-        for image_path in os.listdir(images_dir):
-            full_path = os.path.join(images_dir, image_path)
-            # Check if file is image
-            if not image_path.lower().endswith(('.png', '.jpg', '.jpeg')):
-                continue
-            if image_path in processed_images:  
-                continue
-            
-            # Save image path
-            self.images.append(full_path)
-            processed_images.add(image_path)
-            
-            # Get captions for image
-            image_captions = captions_df[captions_df["image_name"] == image_path]["caption"].tolist()
-            if image_captions:  
-                self.captions[full_path] = image_captions
-            else:
-                continue
-            
-            # Load image to get properties
-            with Image.open(full_path) as img:
-                width, height = img.size
-                self.data_properties['image_width'].append(width)
-                self.data_properties['image_height'].append(height)
-
-            # Calculate statistics from captions
-            for caption in image_captions:
-                self.data_properties['title_length'].append(len(caption.split()))
-                self.data_properties['lexicon'].update(caption.split())
-                self.all_words.extend(caption.split())
-
-        # Convert the lexicon set to a list
-        self.data_properties['lexicon'] = list(self.data_properties['lexicon'])
-        
-    def __len__(self):
-        return len(self.images)
-    
-    def preprocess_captions(sent):
-        lemmatizer = WordNetLemmatizer()
-        sent = sent.lower()
-        sent = re.sub("[0-9]","",sent)     # digits
-        sent = re.sub("https?://\S+","",sent)     # URLs
-        sent = re.sub("@\S+","",sent)     # @'s
-        sent = re.sub("[+-/*,':%$#&!_<>(){}^]","",sent)     # special characters
-        sent = re.sub(chr(34), "", sent)  # double quote ""  
-        sent = re.sub(" +"," ",sent)     # extra spaces
-        words = nltk.word_tokenize(sent)
-        stop_words = set(nltk.corpus.stopwords.words("english"))
-        words = [lemmatizer.lemmatize(word) for word in words if word not in stop_words]
-        sent = ' '.join(words)
-        sent = "<start> " + sent + " <end>"
-        return sent
-
-    def get_statistics(self, printed):
-        plot_statistics(self.data_properties, printed)
-        word_statistics(self.all_words, printed)
-
-    def __getitem__(self, idx):
-        image_id = self.images[idx]
-        captions = self.captions[image_id]
-        image = Image.open(image_id).convert('RGB')
-
-        if self.transform:
-            image = self.transform(image)
-
-        return image, captions
-
 class FoodDataset(Dataset):
     def __init__(self, captions_df, images_dir, transform=None, type="char"):
         self.captions_df = captions_df
@@ -114,6 +31,7 @@ class FoodDataset(Dataset):
         self.images = []
         self.captions = []
         
+        i=0
         for image_path in os.listdir(images_dir):
             full_path = os.path.join(images_dir, image_path)
             # Check if file is image
@@ -127,7 +45,8 @@ class FoodDataset(Dataset):
             self.images.append(full_path)
             
             # Get captions for image
-            image_caption = captions_df[captions_df["Image_Name"] == image_name]["Title"]
+            image_caption = captions_df.loc[captions_df['Image_Name'] == image_name, 'Title'].squeeze()
+            print("IMAGE CAPTION ", image_caption)
             self.captions.append(image_caption)
             
             # Load image to get properties
@@ -137,31 +56,39 @@ class FoodDataset(Dataset):
                 self.data_properties['image_height'].append(height)
 
             # Calculate statistics from captions
-            self.data_properties['title_length'].append(len(image_caption.split()))
-            self.data_properties['lexicon'].update(image_caption.split())
-            self.all_words.extend(image_caption.split())
+            self.data_properties['title_length'].append(len(self.preprocess_captions(image_caption)))
+            self.data_properties['lexicon'].update(self.preprocess_captions(image_caption))
+            self.all_words.extend(self.preprocess_captions(image_caption))
 
+            i+=1
+            if i==20:
+                break
         # Convert the lexicon set to a list
         self.data_properties['lexicon'] = list(self.data_properties['lexicon'])
         
     def __len__(self):
         return len(self.images)
     
-    def preprocess_captions(sent):
+    def preprocess_captions(self, sent, pad=False):
         lemmatizer = WordNetLemmatizer()
         sent = sent.lower()
-        sent = re.sub("[0-9]","",sent)     # digits
-        sent = re.sub("https?://\S+","",sent)     # URLs
-        sent = re.sub("@\S+","",sent)     # @'s
-        sent = re.sub("[+-/*,':%$#&!_<>(){}^]","",sent)     # special characters
+        """#sent = re.sub("[0-9]","",sent)     # digits
+        sent = re.sub(r"https?://\S+","",sent)     # URLs
+        sent = re.sub(r"@\S+","",sent)     # @'s
+        sent = re.sub(r"[+-/*,':%$#&!_<>(){}^]","",sent)     # special characters
         sent = re.sub(chr(34), "", sent)  # double quote ""  
-        sent = re.sub(" +"," ",sent)     # extra spaces
+        sent = re.sub(r" +"," ",sent)     # extra spaces"""
         words = nltk.word_tokenize(sent)
         stop_words = set(nltk.corpus.stopwords.words("english"))
         words = [lemmatizer.lemmatize(word) for word in words if word not in stop_words]
-        sent = ' '.join(words)
-        sent = "<start> " + sent + " <end>"
-        return sent
+        words = [word for word in words if not re.match(r'^[^\w]+$', word)]
+        words = [subword for word in words for subword in re.split(r'\W+', word) if subword]
+        if pad:
+            words.insert(0, "<SOS>")
+            words.append("<EOS>")
+            n_padding = max(self.data_properties["title_length"]) + 2 - len(words)
+            words = words + ["0" for _ in range(max(0, n_padding))]
+        return words
 
     def get_statistics(self, printed):
         plot_statistics(self.data_properties, printed)
@@ -170,6 +97,8 @@ class FoodDataset(Dataset):
     def __getitem__(self, idx):
         image_id = self.images[idx]
         caption = self.captions[idx]
+        caption = self.preprocess_captions(caption, pad=True)
+        print("PREPROCESSED CAPTION: ", caption)
         image = Image.open(image_id).convert('RGB')
 
         if self.transform:
@@ -321,3 +250,88 @@ def word_statistics(all_words, printed=False):
     plt.xlabel('Characters')
     plt.ylabel('Frequency')
     plt.savefig("results/statistics/common_chars.png")
+
+
+
+"""class Flickr30kDataset(Dataset):
+    def __init__(self, captions_df, images_dir, transform=None, type="char"):
+        self.captions_df = captions_df
+        self.image_dir = images_dir
+        self.transform = transform
+        # Save data properties for statistics
+        self.data_properties = {'image_width': [],
+                                'image_height': [],
+                                'title_length': [],
+                                'lexicon': set()}
+        self.all_words = []
+        # Save images and its captions
+        self.images = []
+        self.captions = {}
+        processed_images = set()  # set to track already processed images
+        
+        for image_path in os.listdir(images_dir):
+            full_path = os.path.join(images_dir, image_path)
+            # Check if file is image
+            if not image_path.lower().endswith(('.png', '.jpg', '.jpeg')):
+                continue
+            if image_path in processed_images:  
+                continue
+            
+            # Save image path
+            self.images.append(full_path)
+            processed_images.add(image_path)
+            
+            # Get captions for image
+            image_captions = captions_df[captions_df["image_name"] == image_path]["caption"].tolist()
+            if image_captions:  
+                self.captions[full_path] = image_captions
+            else:
+                continue
+            
+            # Load image to get properties
+            with Image.open(full_path) as img:
+                width, height = img.size
+                self.data_properties['image_width'].append(width)
+                self.data_properties['image_height'].append(height)
+
+            # Calculate statistics from captions
+            for caption in image_captions:
+                self.data_properties['title_length'].append(len(caption.split()))
+                self.data_properties['lexicon'].update(caption.split())
+                self.all_words.extend(caption.split())
+
+        # Convert the lexicon set to a list
+        self.data_properties['lexicon'] = list(self.data_properties['lexicon'])
+        
+    def __len__(self):
+        return len(self.images)
+    
+    def preprocess_captions(sent):
+        lemmatizer = WordNetLemmatizer()
+        sent = sent.lower()
+        sent = re.sub("[0-9]","",sent)     # digits
+        sent = re.sub("https?://\S+","",sent)     # URLs
+        sent = re.sub("@\S+","",sent)     # @'s
+        sent = re.sub("[+-/*,':%$#&!_<>(){}^]","",sent)     # special characters
+        sent = re.sub(chr(34), "", sent)  # double quote ""  
+        sent = re.sub(" +"," ",sent)     # extra spaces
+        words = nltk.word_tokenize(sent)
+        stop_words = set(nltk.corpus.stopwords.words("english"))
+        words = [lemmatizer.lemmatize(word) for word in words if word not in stop_words]
+        sent = ' '.join(words)
+        sent = "<start> " + sent + " <end>"
+        return sent
+
+    def get_statistics(self, printed):
+        plot_statistics(self.data_properties, printed)
+        word_statistics(self.all_words, printed)
+
+    def __getitem__(self, idx):
+        image_id = self.images[idx]
+        captions = self.captions[image_id]
+        image = Image.open(image_id).convert('RGB')
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, captions"""

@@ -30,8 +30,7 @@ transform = transforms.Compose([transforms.Resize((256, 256)),
                                 transforms.ToTensor()])
 
 # Import dataset
-info_df = pd.read_csv(CAPTIONS_DIR, sep=',')
-print(info_df)
+info_df = pd.read_csv(CAPTIONS_DIR)
 dataset = FoodDataset(info_df, IMAGES_DIR, transform)
 VOCAB_SIZE = len(dataset.data_properties["lexicon"])
 #statistics = dataset.get_statistics(printed=True)
@@ -54,10 +53,9 @@ names = ["densenet201","vgg16","resnet50"]
 
 
 for images, captions in train_loader:
-    print(len(images))
-    print(len(captions))
-    print(len(captions[0]))
-    print(captions)
+    print("Number of images:",len(images))
+    print("Number of captions:",len(captions))
+    print("Captions:",captions)
 
 # Train and validation loop
 for model_function, model_name in zip(models, names):
