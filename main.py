@@ -32,6 +32,7 @@ transform = transforms.Compose([transforms.Resize((256, 256)),
 # Import dataset
 captions_df = pd.read_csv(CAPTIONS_DIR, sep='|', skiprows=1, header=None, names=['image_name', 'caption_number', 'caption'])
 dataset = Flickr30kDataset(captions_df, IMAGES_DIR, transform)
+VOCAB_SIZE = len(dataset.data_properties["lexicon"])
 #statistics = dataset.get_statistics(printed=True)
 print(f"Number of images in total: {len(dataset)}")
 
@@ -57,9 +58,9 @@ for images, captions in train_loader:
     print(len(captions[0]))
     print(captions)
 
-"""# Train and validation loop
+# Train and validation loop
 for model_function, model_name in zip(models, names):
-    model = CaptioningModel()
+    model = CaptioningModel(model_function, embed_size, hidden_size, VOCAB_SIZE, attention_size)
     for epoch in range(NUM_EPOCHS):
         train_model(model, train_loader, OPTIMIZER, CRITERION, epoch)
         test_model(model, val_loader, OPTIMIZER, CRITERION, epoch, type="val")
@@ -67,4 +68,4 @@ for model_function, model_name in zip(models, names):
 # Save trained model
 #torch.save(model.state_dict(), f'utils/saved_models/{model.name}_config{config.NUM_CONFIG}.pth')
 
-# Test"""
+# Test
