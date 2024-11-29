@@ -59,7 +59,7 @@ for images, captions in train_loader:
 
 """# Train and validation loop
 for model_function, model_name in zip(models, names):
-    model = Model()
+    model = CaptioningModel()
     for epoch in range(NUM_EPOCHS):
         train_model(model, train_loader, OPTIMIZER, CRITERION, epoch)
         test_model(model, val_loader, OPTIMIZER, CRITERION, epoch, type="val")
