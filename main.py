@@ -5,13 +5,13 @@ from torchvision import transforms, models
 import pandas as pd
 
 import config
-from utils.dataset import Flickr30kDataset
+from utils.dataset import FoodDataset
 from utils.train_test import initialize_storage, train_model, test_model
 from utils.model import CaptioningModel
 
 # GLOBAL VARIABLES
 IMAGES_DIR = 'data/images/'
-CAPTIONS_DIR = "data/captions.txt"
+CAPTIONS_DIR = "data/info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
 BATCH_SIZE = 32
 NUM_EPOCHS = 20
@@ -30,8 +30,9 @@ transform = transforms.Compose([transforms.Resize((256, 256)),
                                 transforms.ToTensor()])
 
 # Import dataset
-captions_df = pd.read_csv(CAPTIONS_DIR, sep='|', skiprows=1, header=None, names=['image_name', 'caption_number', 'caption'])
-dataset = Flickr30kDataset(captions_df, IMAGES_DIR, transform)
+info_df = pd.read_csv(CAPTIONS_DIR, sep=',')
+print(info_df)
+dataset = FoodDataset(info_df, IMAGES_DIR, transform)
 VOCAB_SIZE = len(dataset.data_properties["lexicon"])
 #statistics = dataset.get_statistics(printed=True)
 print(f"Number of images in total: {len(dataset)}")

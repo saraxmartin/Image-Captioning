@@ -99,7 +99,7 @@ class Flickr30kDataset(Dataset):
 
         return image, captions
 
-def FoodDataset(Dataset):
+class FoodDataset(Dataset):
     def __init__(self, captions_df, images_dir, transform=None, type="char"):
         self.captions_df = captions_df
         self.image_dir = images_dir
