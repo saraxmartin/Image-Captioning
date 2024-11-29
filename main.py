@@ -7,7 +7,7 @@ import pandas as pd
 import config
 from utils.dataset import Flickr30kDataset
 from utils.train_test import initialize_storage, train_model, test_model
-from utils.model import Model
+from utils.model import CaptioningModel
 
 # GLOBAL VARIABLES
 IMAGES_DIR = 'data/images/'
