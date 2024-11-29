@@ -42,13 +42,20 @@ print(f"Number of images in validation dataset: {len(val_dataset)}")
 print(f"Number of images in test dataset: {len(test_dataset)}")
 
 # Create Dataloaders
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
-val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
+val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # Configure models
 models = [models.densenet201, models.vgg16, models.resnet50]
 names = ["densenet201","vgg16","resnet50"]
+
+
+for images, captions in train_loader:
+    print(len(images))
+    print(len(captions))
+    print(len(captions[0]))
+    print(captions)
 
 """# Train and validation loop
 for model_function, model_name in zip(models, names):

@@ -32,7 +32,6 @@ class Flickr30kDataset(Dataset):
         self.captions = {}
         processed_images = set()  # set to track already processed images
         
-
         for image_path in os.listdir(images_dir):
             full_path = os.path.join(images_dir, image_path)
             # Check if file is image
@@ -66,7 +65,7 @@ class Flickr30kDataset(Dataset):
 
         # Convert the lexicon set to a list
         self.data_properties['lexicon'] = list(self.data_properties['lexicon'])
-
+        
     def __len__(self):
         return len(self.images)
     
@@ -91,10 +90,9 @@ class Flickr30kDataset(Dataset):
         word_statistics(self.all_words, printed)
 
     def __getitem__(self, idx):
-        image_id = self.images.iloc[idx]
+        image_id = self.images[idx]
         captions = self.captions[image_id]
-        image_path = os.path.join(self.image_dir, image_id)
-        image = Image.open(image_path).convert('RGB')
+        image = Image.open(image_id).convert('RGB')
 
         if self.transform:
             image = self.transform(image)
