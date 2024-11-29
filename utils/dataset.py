@@ -30,6 +30,8 @@ class FoodDataset(Dataset):
         # Save images and its captions
         self.images = []
         self.captions = []
+        self.word2idx = {}  # Initialize word2index dictionary
+        self.idx2word = {}  # Initialize index2word dictionary
         
         i=0
         for image_path in os.listdir(images_dir):
@@ -65,6 +67,13 @@ class FoodDataset(Dataset):
                 break
         # Convert the lexicon set to a list
         self.data_properties['lexicon'] = list(self.data_properties['lexicon'])
+        self.build_vocab()
+    
+    def build_vocab(self):
+        special_tokens = ["<SOS>", "<EOS>", "<UNK>"]
+        vocab = special_tokens + sorted(self.data_properties['lexicon'])
+        self.word2idx = {word: idx for idx, word in enumerate(vocab)}
+        self.idx2word = {idx: word for word, idx in self.word2idx.items()}
         
     def __len__(self):
         return len(self.images)
@@ -98,13 +107,16 @@ class FoodDataset(Dataset):
         image_id = self.images[idx]
         caption = self.captions[idx]
         caption = self.preprocess_captions(caption, pad=True)
+        caption_indices = [self.word2idx.get(word, self.word2idx["<UNK>"]) for word in caption] #if word not in the vocab then "UNK" 
         print("PREPROCESSED CAPTION: ", caption)
+        print("PREPROCESSED CAPTION INDICES", caption_indices)
         image = Image.open(image_id).convert('RGB')
 
         if self.transform:
             image = self.transform(image)
 
-        return image, caption
+        return image, caption_indices
+
 
 def bar_plots(width_stats, height_stats, title_length_stats):
     # Bar plot for Image Width and Height

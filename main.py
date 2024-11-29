@@ -8,6 +8,8 @@ import config
 from utils.dataset import FoodDataset
 from utils.train_test import initialize_storage, train_model, test_model
 from utils.model import CaptioningModel
+import nltk
+#nltk.download('punkt_tab')
 
 # GLOBAL VARIABLES
 IMAGES_DIR = 'data/images/'
