@@ -5,7 +5,7 @@ from PIL import Image
 import re
 import nltk
 from nltk.stem import WordNetLemmatizer
-
+import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -108,14 +108,17 @@ class FoodDataset(Dataset):
         caption = self.captions[idx]
         caption = self.preprocess_captions(caption, pad=True)
         caption_indices = [self.word2idx.get(word, self.word2idx["<UNK>"]) for word in caption] #if word not in the vocab then "UNK" 
+        caption_tensor = torch.tensor(caption_indices, dtype=torch.long)
         print("PREPROCESSED CAPTION: ", caption)
         print("PREPROCESSED CAPTION INDICES", caption_indices)
         image = Image.open(image_id).convert('RGB')
 
         if self.transform:
             image = self.transform(image)
+        else:
+            image = transforms.ToTensor()(image)  #default image to Tensor conversion if no transform is applied
 
-        return image, caption_indices
+        return image, caption_tensor
 
 
 def bar_plots(width_stats, height_stats, title_length_stats):

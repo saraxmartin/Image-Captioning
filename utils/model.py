@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
+
+
 class EncoderCNN(nn.Module):
     def __init__(self, base_model, embed_size=1024):
         super(EncoderCNN, self).__init__()
@@ -44,22 +46,44 @@ class DecoderLSTM(nn.Module):
         self.attention = Attention(hidden_size, attention_size)
         self.fc_out = nn.Linear(hidden_size, vocab_size)
 
-    def forward(self, features, captions, hidden_state=None, cell_state=None):
+    def forward(self, features, captions):
         # word sequence
         print("Max caption index:", captions.max().item())
         print("Vocab size:", self.vocab_size)
 
         embedded_captions = self.embedding(captions)
+        print("embedded_captions vector:", embedded_captions.shape)
+
         
         # Process through LSTM
-        context, _ = self.attention(features, hidden_state)  # Get attention-weighted context
-        lstm_input = torch.cat((embedded_captions, context), dim=1)  # Concatenate
-        lstm_out, (hidden_state, cell_state) = self.lstm(lstm_input.unsqueeze(0), (hidden_state, cell_state))
+        context, _ = self.attention(features)  #get attention-weighted context
+        print("Context before unsqueeze:",context.shape)
+
+        context = context.unsqueeze(1)
+        print("Context after unsqueeze:", context.shape) #[16] -> [16,1]
+
+        context = context.unsqueeze(1) # [16,1] -> [16,1,1]
+        print("Context after unsqueeze:", context.shape)
         
+        print("Embedded size(1)", embedded_captions.size(1)) 
+        context = context.expand(-1, embedded_captions.size(1), -1)
+        print("Context after expand:", context.shape)  # shape: [16, 11, 1]
+
+        context = context.expand(-1, -1, 256)
+        print("Context after expand to hidden_size dim:", context.shape)
+
+
+        lstm_input = torch.cat((embedded_captions, context), dim=2)  # Concatenate [16,11,256] -> [16,11,256+256]
+        print(lstm_input.shape) #[16,11,512]
+        #lstm_out = self.lstm(lstm_input)
+        lstm_out, (h_n, c_n) = self.lstm(lstm_input)
         # Get predicted output word
-        output = self.fc_out(lstm_out.squeeze(0))
-        
-        return output, hidden_state, cell_state
+        output = self.fc_out(lstm_out)
+        print(lstm_out.shape)
+        return output
+    
+
+
 class Attention(nn.Module):
     def __init__(self, hidden_size, attention_size):
         super(Attention, self).__init__()
@@ -68,7 +92,7 @@ class Attention(nn.Module):
         self.attn = nn.Linear(hidden_size, attention_size)
         self.context = nn.Linear(attention_size, 1)
         
-    def forward(self, features, hidden_state):
+    def forward(self, features):
         # Calculate attention scores based on features and hidden state
         attn_weights = torch.tanh(self.attn(features))
         attn_scores = self.context(attn_weights)
@@ -87,8 +111,8 @@ class CaptioningModel(nn.Module):
         self.encoder = EncoderCNN(base_model, embed_size)
         self.decoder = DecoderLSTM(embed_size, hidden_size, vocab_size, attention_size) #with attention
     
-    def forward(self, images, captions, hidden_state=None, cell_state=None):
+    def forward(self, images, captions):
         features = self.encoder(images)
-        outputs, hidden_state, cell_state = self.decoder(features, captions, hidden_state, cell_state)
+        outputs, (hidden_state, cell_state) = self.decoder(features, captions)
         
         return outputs, hidden_state, cell_state

@@ -2,7 +2,7 @@ import torch
 import csv
 import os
 import config
-import evaluate
+#import evaluate
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

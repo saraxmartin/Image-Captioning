@@ -23,6 +23,7 @@ selected_config = config.configs[config.NUM_CONFIG]
 FC_LAYERS = selected_config["FC_LAYERS"]
 ACTIVATIONS = selected_config["ACTIVATIONS"]
 BATCH_NORMS = selected_config["BATCH_NORMS"]
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 initialize_storage()
 
@@ -64,6 +65,7 @@ print("NEW VOCAB SIZE", VOCAB_SIZE)
 # Train and validation loop
 for model_function, model_name in zip(models, names):
     model = CaptioningModel(model_function, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE, attention_size = 256)
+    model = model.to(DEVICE)
     for epoch in range(NUM_EPOCHS):
         CRITERION = selected_config["CRITERION"]()  # Loss function
         OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"]) 
