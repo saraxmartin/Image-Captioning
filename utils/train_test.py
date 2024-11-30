@@ -87,8 +87,14 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
         optimizer.step()
         total_loss += loss.item()
         outputs = outputs.argmax(dim=-1) 
-        print("OUTPUTS: ", outputs)
-        predicted_texts = [dataset.idx2word for idx in outputs.detach().cpu().numpy().flatten()]
+        predicted_texts = []
+        for sequence in outputs:
+            sentence = []
+            for idx in sequence:
+                idx = int(idx)
+                sentence.append(dataset.idx2word[idx])  # Convert index to word
+            predicted_texts.append([sentence])  # Join words to form a sentence
+        print(predicted_texts)
         true_texts = [dataset.idx2word[idx] for idx in captions.cpu().numpy().flatten()]
         # Metrices
         metrices = compute_metrices(predicted_texts,true_texts,metrices)
