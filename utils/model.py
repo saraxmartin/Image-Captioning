@@ -113,6 +113,6 @@ class CaptioningModel(nn.Module):
     
     def forward(self, images, captions):
         features = self.encoder(images)
-        outputs, (hidden_state, cell_state) = self.decoder(features, captions)
+        outputs = self.decoder(features, captions)
         
-        return outputs, hidden_state, cell_state
+        return outputs

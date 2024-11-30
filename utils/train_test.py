@@ -2,7 +2,9 @@ import torch
 import csv
 import os
 import config
-#import evaluate
+import evaluate
+from utils.dataset import FoodDataset
+
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -35,17 +37,16 @@ def compute_metrices(prediction, true_captions, metrices_dict):
     - Add accuracy or not necessary?
     - max_order of bleu?
     """
-
-    # Get
     bleu = evaluate.load('bleu')
     meteor = evaluate.load('meteor')
     rouge = evaluate.load('rouge')
-    
-    # Compute metrices
-    bleu1 = bleu.compute(prediction, true_captions, max_order=1)
-    bleu2 = bleu.compute(prediction, true_captions, max_order=2)
-    res_rouge = rouge.compute(prediction, true_captions)
-    res_meteor = meteor.compute(prediction, true_captions)
+
+    bleu1 = bleu.compute(predictions=prediction, references=true_captions, max_order=1)
+    bleu2 = bleu.compute(predictions=prediction, references=true_captions, max_order=2)
+
+    res_rouge = rouge.compute(predictions=prediction, references=true_captions)
+
+    res_meteor = meteor.compute(predictions=prediction, references=true_captions)
 
     # Store results in dictionary and return it
     metrices_dict['bleu'] += bleu1
@@ -55,7 +56,7 @@ def compute_metrices(prediction, true_captions, metrices_dict):
     return metrices_dict
 
 
-def train_model(model, train_loader, optimizer, criterion, epoch, type="train"):
+def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type="train"):
     model.train()
     total_loss = 0
     metrices = {'accuracy':0,
@@ -75,21 +76,27 @@ def train_model(model, train_loader, optimizer, criterion, epoch, type="train"):
         optimizer.zero_grad()
 
         # Forward pass
-        outputs, hidden_state, cell_state = model(images, captions)
+        outputs = model(images, captions)
+        print("ORIGINAL OUTPUT SHAPE",outputs.shape)
+        outputs = outputs.permute(0, 2, 1)  # Now shape is [batch_size, seq_len, vocab_size]
+        print("PERMUTED OUTPUT SHAPE",outputs.shape)
 
         # Loss
         loss = criterion(outputs,captions)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
-
+        outputs = outputs.argmax(dim=-1) 
+        print("OUTPUTS: ", outputs)
+        predicted_texts = [dataset.idx2word for idx in outputs.detach().cpu().numpy().flatten()]
+        true_texts = [dataset.idx2word[idx] for idx in captions.cpu().numpy().flatten()]
         # Metrices
-        metrices = compute_metrices(outputs,captions,metrices)
+        metrices = compute_metrices(predicted_texts,true_texts,metrices)
 
     metrices = {key: value / len(train_loader) for key, value in metrices.items()}
     write_results(model,epoch,type,total_loss,metrices)
 
-def test_model(model, test_loader, criterion, epoch, type="test"):
+def test_model(model, test_loader, dataset, gt, criterion, epoch, type="test"):
     model.eval()
     total_loss = 0
     metrices = {'accuracy':0,
@@ -109,7 +116,7 @@ def test_model(model, test_loader, criterion, epoch, type="test"):
             total_loss += loss.item()
 
             # Metrices
-            metrices = compute_metrices(outputs,captions,metrices)
+            metrices = compute_metrices(outputs,gt,metrices)
 
     metrices = {key: value / len(test_loader) for key, value in metrices.items()}
     write_results(model,epoch,type,total_loss,metrices)  

@@ -61,6 +61,7 @@ for images, captions in train_loader:
     print("Captions:",captions)
 
 VOCAB_SIZE = len(dataset.word2idx)
+gt = dataset.idx2word
 print("NEW VOCAB SIZE", VOCAB_SIZE)
 # Train and validation loop
 for model_function, model_name in zip(models, names):
@@ -69,8 +70,8 @@ for model_function, model_name in zip(models, names):
     for epoch in range(NUM_EPOCHS):
         CRITERION = selected_config["CRITERION"]()  # Loss function
         OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"]) 
-        train_model(model, train_loader, OPTIMIZER, CRITERION, epoch)
-        test_model(model, val_loader, OPTIMIZER, CRITERION, epoch, type="val")
+        train_model(model, train_loader, dataset,OPTIMIZER, CRITERION, epoch)
+        test_model(model, val_loader, dataset,OPTIMIZER, CRITERION, epoch, type="val")
 
 # Save trained model
 #torch.save(model.state_dict(), f'utils/saved_models/{model.name}_config{config.NUM_CONFIG}.pth')
