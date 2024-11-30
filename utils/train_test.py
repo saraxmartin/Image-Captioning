@@ -64,11 +64,18 @@ def train_model(model, train_loader, optimizer, criterion, epoch, type="train"):
                 'meteor':0}
 
     for images, captions in train_loader:
+        print("IMAGES:", images)
+        print("CAPTIONS:", captions)
+        if isinstance(captions, list):  # Ensure captions is a list of tensors
+            # reorginize each tensor (each index across tensors are the captition of an image)
+            captions = torch.stack(captions, dim=1)
+        print("REORGANIZE CAPTIONS:", captions)
         images, captions = images.to(DEVICE), captions.to(DEVICE)
+
         optimizer.zero_grad()
 
         # Forward pass
-        outputs = model(images)
+        outputs, hidden_state, cell_state = model(images, captions)
 
         # Loss
         loss = criterion(outputs,captions)

@@ -38,6 +38,7 @@ class EncoderCNN(nn.Module):
 class DecoderLSTM(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, attention_size=512):
         super(DecoderLSTM, self).__init__()
+        self.vocab_size = vocab_size
         self.embedding = nn.Embedding(vocab_size, embed_size)
         self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size)
         self.attention = Attention(hidden_size, attention_size)
@@ -45,6 +46,9 @@ class DecoderLSTM(nn.Module):
 
     def forward(self, features, captions, hidden_state=None, cell_state=None):
         # word sequence
+        print("Max caption index:", captions.max().item())
+        print("Vocab size:", self.vocab_size)
+
         embedded_captions = self.embedding(captions)
         
         # Process through LSTM
