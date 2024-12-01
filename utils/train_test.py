@@ -93,7 +93,8 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
             for idx in sequence:
                 idx = int(idx)
                 sentence.append(dataset.idx2word[idx])  # Convert index to word
-            predicted_texts.append([sentence])  # Join words to form a sentence
+            predicted_texts.append(sentence)  # Join words to form a sentence
+        predicted_texts = [dataset.idx2word[idx] for idx in predicted_texts]
         print(predicted_texts)
         true_texts = [dataset.idx2word[idx] for idx in captions.cpu().numpy().flatten()]
         # Metrices
