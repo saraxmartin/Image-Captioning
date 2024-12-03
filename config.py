@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.optim as optim
 
-NUM_CONFIG = 1
+NUM_CONFIG = 2
 
 configs = {
     1:  # Configuration 1
@@ -15,7 +15,7 @@ configs = {
     },
     2:  # Configuration 2
         {
-        "LEARNING_RATE": 0.0005,
+        "LEARNING_RATE": 0.00005,
         "CRITERION": nn.MSELoss,
         "OPTIMIZER": optim.SGD,
         "FC_LAYERS": [1024, 512],

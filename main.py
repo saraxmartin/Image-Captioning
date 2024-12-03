@@ -75,7 +75,6 @@ for model_function, model_name in zip(name_models, names):
         #test_model(model, val_loader, dataset,OPTIMIZER, CRITERION, epoch, type="val")
         print("\n")
 
-
 # Save trained model
 #torch.save(model.state_dict(), f'utils/saved_models/{model.name}_config{config.NUM_CONFIG}.pth')
 

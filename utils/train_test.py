@@ -68,6 +68,16 @@ def compute_metrices(prediction, true_captions, metrices_dict):
     return metrices_dict
 
 
+def compute_loss(output, labels, criterion, pad_idx, sos_idx, eos_idx):
+    # Mask valid tokens (exclude PAD, SOS, and EOS)
+    valid_mask = (labels != pad_idx) & (labels != sos_idx) & (labels != eos_idx)
+
+    # Compute loss only on valid tokens
+    loss = criterion(output, labels)
+    loss = loss * valid_mask.float()
+
+    return loss.sum() / valid_mask.sum()
+
 def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type="train"):
     model.train()
     total_loss = 0
@@ -80,9 +90,6 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
     for images, captions in train_loader:
         #print("IMAGES:", images)
         print("CAPTIONS:", captions)
-        if isinstance(captions, list):  # Ensure captions is a list of tensors
-            # reorginize each tensor (each index across tensors are the captition of an image)
-            captions = torch.stack(captions, dim=1)
         #print("REORGANIZE CAPTIONS:", captions)
         images, captions = images.to(DEVICE), captions.to(DEVICE)
 
@@ -95,7 +102,8 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
         #print("PERMUTED OUTPUT SHAPE",outputs.shape)
 
         # Loss
-        loss = criterion(outputs,captions)
+        #loss = criterion(outputs, captions)
+        loss = compute_loss(outputs, captions, criterion, pad_idx=0, sos_idx=1, eos_idx=2)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
