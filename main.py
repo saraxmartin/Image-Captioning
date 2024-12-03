@@ -64,7 +64,7 @@ gt = dataset.idx2word
 #print("NEW VOCAB SIZE", VOCAB_SIZE)
 # Train and validation loop
 for model_function, model_name in zip(name_models, names):
-    model = CaptioningModel(model_function, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE, attention_size = 256)
+    model = CaptioningModel(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE, attention_size = 256)
     model = model.to(DEVICE)
     
     for epoch in range(NUM_EPOCHS):
