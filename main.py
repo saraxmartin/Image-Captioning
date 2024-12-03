@@ -9,7 +9,6 @@ from utils.dataset import FoodDataset
 from utils.train_test import initialize_storage, train_model, test_model
 from utils.model import CaptioningModel
 import nltk
-#nltk.download('punkt_tab')
 
 # GLOBAL VARIABLES
 IMAGES_DIR = 'data/images/'
@@ -69,7 +68,7 @@ for model_function, model_name in zip(name_models, names):
     model = model.to(DEVICE)
     
     for epoch in range(NUM_EPOCHS):
-        print("\nEPOCH {epoch}/{NUM_EPOCHS}: ")
+        print(f"\nEPOCH {epoch}/{NUM_EPOCHS}: ")
         CRITERION = selected_config["CRITERION"]()  # Loss function
         OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"]) 
         train_model(model, train_loader, dataset,OPTIMIZER, CRITERION, epoch)

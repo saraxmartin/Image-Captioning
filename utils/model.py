@@ -52,34 +52,34 @@ class DecoderLSTM(nn.Module):
         print("Vocab size:", self.vocab_size)
 
         embedded_captions = self.embedding(captions)
-        print("embedded_captions vector:", embedded_captions.shape)
+        #print("embedded_captions vector:", embedded_captions.shape)
 
         
         # Process through LSTM
         context, _ = self.attention(features)  #get attention-weighted context
-        print("Context before unsqueeze:",context.shape)
+        #print("Context before unsqueeze:",context.shape)
 
         context = context.unsqueeze(1)
-        print("Context after unsqueeze:", context.shape) #[16] -> [16,1]
+        #print("Context after unsqueeze:", context.shape) #[16] -> [16,1]
 
         context = context.unsqueeze(1) # [16,1] -> [16,1,1]
-        print("Context after unsqueeze:", context.shape)
+        #print("Context after unsqueeze:", context.shape)
         
-        print("Embedded size(1)", embedded_captions.size(1)) 
+        #print("Embedded size(1)", embedded_captions.size(1)) 
         context = context.expand(-1, embedded_captions.size(1), -1)
-        print("Context after expand:", context.shape)  # shape: [16, 11, 1]
+        #print("Context after expand:", context.shape)  # shape: [16, 11, 1]
 
         context = context.expand(-1, -1, 256)
-        print("Context after expand to hidden_size dim:", context.shape)
+        #print("Context after expand to hidden_size dim:", context.shape)
 
 
         lstm_input = torch.cat((embedded_captions, context), dim=2)  # Concatenate [16,11,256] -> [16,11,256+256]
-        print("Input LSTM size:", lstm_input.shape) #[16,11,512]
+        #print("Input LSTM size:", lstm_input.shape) #[16,11,512]
         #lstm_out = self.lstm(lstm_input)
         lstm_out, (h_n, c_n) = self.lstm(lstm_input)
         # Get predicted output word
         output = self.fc_out(lstm_out)
-        print("Output LSTM size:", lstm_out.shape)
+        #print("Output LSTM size:", lstm_out.shape)
         return output
     
 
