@@ -70,7 +70,7 @@ class FoodDataset(Dataset):
         self.build_vocab()
     
     def build_vocab(self):
-        special_tokens = ["<SOS>", "<EOS>", "<UNK>"]
+        special_tokens = ["<PAD>","<SOS>", "<EOS>", "<UNK>"]
         vocab = special_tokens + sorted(self.data_properties['lexicon'])
         self.word2idx = {word: idx for idx, word in enumerate(vocab)}
         self.idx2word = {idx: word for word, idx in self.word2idx.items()}
@@ -96,7 +96,7 @@ class FoodDataset(Dataset):
             words.insert(0, "<SOS>")
             words.append("<EOS>")
             n_padding = max(self.data_properties["title_length"]) + 2 - len(words)
-            words = words + ["0" for _ in range(max(0, n_padding))]
+            words = words + ["<PAD>" for _ in range(max(0, n_padding))]
         return words
 
     def get_statistics(self, printed):
