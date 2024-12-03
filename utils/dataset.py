@@ -103,8 +103,8 @@ class FoodDataset(Dataset):
         caption = self.preprocess_captions(caption, pad=True)
         caption_indices = [self.word2idx.get(word, self.word2idx["<UNK>"]) for word in caption] #if word not in the vocab then "UNK" 
         caption_tensor = torch.tensor(caption_indices, dtype=torch.long)
-        print("PREPROCESSED CAPTION: ", caption)
-        print("PREPROCESSED CAPTION INDICES", caption_indices)
+        #print("PREPROCESSED CAPTION: ", caption)
+        #print("PREPROCESSED CAPTION INDICES", caption_indices)
         image = Image.open(image_id).convert('RGB')
 
         if self.transform:

@@ -104,10 +104,16 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
             predicted_texts = [idx for sublist in predicted_texts for idx in sublist]
         print("\nKeys in idx2word:", dataset.idx2word.keys())
         print("\nValues in idx2word:", dataset.idx2word.items())
-        print("\nList predict: ", predicted_texts)
         predicted_texts = [dataset.idx2word[int(idx)] if str(idx).isdigit() else idx for idx in predicted_texts]
-        print(predicted_texts)
-        true_texts = [dataset.idx2word[idx] for idx in captions.cpu().numpy().flatten()]
+
+        true_texts = []
+        for sentence in captions.cpu().numpy():
+            true_texts.append([dataset.idx2word[idx] for idx in sentence])
+
+
+        print("\n\nPREDICTED TEXTS: ", predicted_texts)
+        print("\nTRUE TEXTS: ", true_texts)
+
         # Metrices
         metrices = compute_metrices(predicted_texts,true_texts,metrices)
 
