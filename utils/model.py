@@ -1,15 +1,23 @@
 import torch
 import torch.nn as nn
 from torchvision import models
+from torchvision.models import DenseNet201_Weights, ResNet50_Weights, VGG16_Weights
 
 
 
 class EncoderCNN(nn.Module):
-    def __init__(self, base_model, embed_size=1024):
+    def __init__(self, base_model, model_name, embed_size=1024):
         super(EncoderCNN, self).__init__()
         
         # Use the pretrained base model
-        self.base_model = base_model(pretrained=True)
+        if model_name == "densenet201":
+            self.base_model = base_model(pretrained=True, weights=DenseNet201_Weights.DEFAULT)
+        elif model_name == "resnet50":
+            self.base_model = base_model(pretrained=True, weights=ResNet50_Weights.DEFAULT)
+        elif model_name == "vgg16":
+            self.base_model = base_model(pretrained=True, weights=VGG16_Weights.DEFAULT)
+        else:
+            raise Exception("MODEL NOT SUPORTED")
         # Identify and replace the final layer of the base model
         if isinstance(self.base_model, models.DenseNet):
             in_features = self.base_model.classifier.in_features
@@ -106,9 +114,9 @@ class Attention(nn.Module):
         return context, attn_weights
     
 class CaptioningModel(nn.Module):
-    def __init__(self, base_model, embed_size, hidden_size, vocab_size, attention_size):
+    def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size, attention_size):
         super(CaptioningModel, self).__init__()
-        self.encoder = EncoderCNN(base_model, embed_size)
+        self.encoder = EncoderCNN(base_model, model_name, embed_size)
         self.decoder = DecoderLSTM(embed_size, hidden_size, vocab_size, attention_size) #with attention
     
     def forward(self, images, captions):
