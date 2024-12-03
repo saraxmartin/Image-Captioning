@@ -68,7 +68,7 @@ for model_function, model_name in zip(name_models, names):
     model = model.to(DEVICE)
     
     for epoch in range(NUM_EPOCHS):
-        print(f"\nEPOCH {epoch}/{NUM_EPOCHS}: ")
+        print(f"\nEPOCH {epoch+1}/{NUM_EPOCHS}: ")
         CRITERION = selected_config["CRITERION"]()  # Loss function
         OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"]) 
         train_model(model, train_loader, dataset,OPTIMIZER, CRITERION, epoch)
