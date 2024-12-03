@@ -65,39 +65,45 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
                 'meteor':0}
 
     for images, captions in train_loader:
-        print("IMAGES:", images)
+        #print("IMAGES:", images)
         print("CAPTIONS:", captions)
         if isinstance(captions, list):  # Ensure captions is a list of tensors
             # reorginize each tensor (each index across tensors are the captition of an image)
             captions = torch.stack(captions, dim=1)
-        print("REORGANIZE CAPTIONS:", captions)
+        #print("REORGANIZE CAPTIONS:", captions)
         images, captions = images.to(DEVICE), captions.to(DEVICE)
 
         optimizer.zero_grad()
 
         # Forward pass
         outputs = model(images, captions)
-        print("ORIGINAL OUTPUT SHAPE",outputs.shape)
+        #print("ORIGINAL OUTPUT SHAPE",outputs.shape)
         outputs = outputs.permute(0, 2, 1)  # Now shape is [batch_size, seq_len, vocab_size]
-        print("PERMUTED OUTPUT SHAPE",outputs.shape)
+        #print("PERMUTED OUTPUT SHAPE",outputs.shape)
+        print('\nshape output argmax', outputs.shape) 
 
         # Loss
         loss = criterion(outputs,captions)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
-        outputs = outputs.argmax(dim=-1) 
+        outputs = outputs.argmax(dim=-2)
+        print('shape output argmax', outputs.shape) 
+
         predicted_texts = []
         for sequence in outputs:
+            print("\nSEQUENCE", sequence, "\nSHAPE sequence", sequence.shape)
             sentence = []
             for idx in sequence:
                 idx = int(idx)
                 sentence.append(dataset.idx2word[idx])  # Convert index to word
-            predicted_texts.append(sentence)  # Join words to form a sentence
+            print("SENTENCE", sentence, "\nSHAPE sentence", len(sentence))
+            predicted_texts.append([sentence])  # Join words to form a sentence
         if isinstance(predicted_texts[0], list):  # Check if it's a list of lists
             predicted_texts = [idx for sublist in predicted_texts for idx in sublist]
-        print("Keys in idx2word:", dataset.idx2word.keys())
-        print("List predict: ", predicted_texts)
+        print("\nKeys in idx2word:", dataset.idx2word.keys())
+        print("\nValues in idx2word:", dataset.idx2word.items())
+        print("\nList predict: ", predicted_texts)
         predicted_texts = [dataset.idx2word[int(idx)] if str(idx).isdigit() else idx for idx in predicted_texts]
         print(predicted_texts)
         true_texts = [dataset.idx2word[idx] for idx in captions.cpu().numpy().flatten()]

@@ -48,7 +48,7 @@ class FoodDataset(Dataset):
             
             # Get captions for image
             image_caption = captions_df.loc[captions_df['Image_Name'] == image_name, 'Title'].squeeze()
-            print("IMAGE CAPTION ", image_caption)
+            #print("IMAGE CAPTION ", image_caption)
             self.captions.append(image_caption)
             
             # Load image to get properties

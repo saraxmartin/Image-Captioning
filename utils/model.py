@@ -74,12 +74,12 @@ class DecoderLSTM(nn.Module):
 
 
         lstm_input = torch.cat((embedded_captions, context), dim=2)  # Concatenate [16,11,256] -> [16,11,256+256]
-        print(lstm_input.shape) #[16,11,512]
+        print("Input LSTM size:", lstm_input.shape) #[16,11,512]
         #lstm_out = self.lstm(lstm_input)
         lstm_out, (h_n, c_n) = self.lstm(lstm_input)
         # Get predicted output word
         output = self.fc_out(lstm_out)
-        print(lstm_out.shape)
+        print("Output LSTM size:", lstm_out.shape)
         return output
     
 

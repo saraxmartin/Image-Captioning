@@ -35,15 +35,15 @@ transform = transforms.Compose([transforms.Resize((256, 256)),
 info_df = pd.read_csv(CAPTIONS_DIR)
 dataset = FoodDataset(info_df, IMAGES_DIR, transform)
 VOCAB_SIZE = len(dataset.data_properties["lexicon"])
-print("ORIGINAL VOCAB SIZE", VOCAB_SIZE)
+#print("ORIGINAL VOCAB SIZE", VOCAB_SIZE)
 #statistics = dataset.get_statistics(printed=True)
-print(f"Number of images in total: {len(dataset)}")
+#print(f"Number of images in total: {len(dataset)}")
 
 # Split in train, validation and test
 train_dataset, val_dataset, test_dataset = random_split(dataset, [0.8, 0.1, 0.1])
-print(f"Number of images in train dataset: {len(train_dataset)}")
-print(f"Number of images in validation dataset: {len(val_dataset)}")
-print(f"Number of images in test dataset: {len(test_dataset)}")
+#print(f"Number of images in train dataset: {len(train_dataset)}")
+#print(f"Number of images in validation dataset: {len(val_dataset)}")
+#print(f"Number of images in test dataset: {len(test_dataset)}")
 
 # Create Dataloaders
 train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
@@ -51,20 +51,20 @@ test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # Configure models
-models = [models.densenet201, models.vgg16, models.resnet50]
+name_models = [models.densenet201, models.vgg16, models.resnet50]
 names = ["densenet201","vgg16","resnet50"]
 
 
-for images, captions in train_loader:
-    print("Number of images:",len(images))
-    print("Number of captions:",len(captions))
-    print("Captions:",captions)
+#for images, captions in train_loader:
+    #print("Number of images:",len(images))
+    #print("Number of captions:",len(captions))
+    #print("Captions:",captions)
 
 VOCAB_SIZE = len(dataset.word2idx)
 gt = dataset.idx2word
-print("NEW VOCAB SIZE", VOCAB_SIZE)
+#print("NEW VOCAB SIZE", VOCAB_SIZE)
 # Train and validation loop
-for model_function, model_name in zip(models, names):
+for model_function, model_name in zip(name_models, names):
     model = CaptioningModel(model_function, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE, attention_size = 256)
     model = model.to(DEVICE)
     for epoch in range(NUM_EPOCHS):
