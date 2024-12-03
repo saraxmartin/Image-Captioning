@@ -16,7 +16,7 @@ def initialize_storage():
     os.makedirs("results/statistics", exist_ok=True)
     os.makedirs("utils/saved_models", exist_ok=True)
     # Define header of the file
-    header = ["config","model","type","epoch","loss","bleu","rouge","meteor"]
+    header = ["config","model","type","epoch","loss","bleu1","bleu2","rouge","meteor"]
     # Check if CSV file exists; if not, create it with the header
     if not os.path.isfile(RESULTS_CSV):
         with open(RESULTS_CSV, mode='w', newline='') as file:
@@ -29,7 +29,7 @@ def write_results(model,epoch,type,loss,metrices):
         model_name = model.name if model != "Ensemble" else "Ensemble"
         loss = f"{loss:.4f}" if loss is not None else "-"
         writer.writerow([config.NUM_CONFIG, model_name, type, epoch + 1, loss,
-                         metrices["accuracy"], metrices["bleu"], metrices["rouge"], metrices["meteor"]])
+                         metrices["accuracy"], metrices["bleu1"], metrices["bleu2"], metrices["rouge"], metrices["meteor"]])
 
 def compute_metrices(prediction, true_captions, metrices_dict):
 
@@ -49,7 +49,8 @@ def compute_metrices(prediction, true_captions, metrices_dict):
     res_meteor = meteor.compute(predictions=prediction, references=true_captions)
 
     # Store results in dictionary and return it
-    metrices_dict['bleu'] += bleu1
+    metrices_dict['bleu1'] += bleu1
+    metrices_dict['bleu2'] += bleu2
     metrices_dict['rouge'] += res_rouge
     metrices_dict['meteor'] += res_meteor
 
