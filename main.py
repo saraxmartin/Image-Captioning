@@ -67,11 +67,14 @@ gt = dataset.idx2word
 for model_function, model_name in zip(name_models, names):
     model = CaptioningModel(model_function, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE, attention_size = 256)
     model = model.to(DEVICE)
+    
     for epoch in range(NUM_EPOCHS):
+        print("\nEPOCH {epoch}/{NUM_EPOCHS}: ")
         CRITERION = selected_config["CRITERION"]()  # Loss function
         OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"]) 
         train_model(model, train_loader, dataset,OPTIMIZER, CRITERION, epoch)
         test_model(model, val_loader, dataset,OPTIMIZER, CRITERION, epoch, type="val")
+        print("\n")
 
 # Save trained model
 #torch.save(model.state_dict(), f'utils/saved_models/{model.name}_config{config.NUM_CONFIG}.pth')
