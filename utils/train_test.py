@@ -16,7 +16,7 @@ def initialize_storage():
     os.makedirs("results/statistics", exist_ok=True)
     os.makedirs("utils/saved_models", exist_ok=True)
     # Define header of the file
-    header = ["config","model","type","epoch","loss","bleu1","bleu2","rouge","meteor"]
+    header = ["config","model","type","epoch","loss","accuracy","bleu1","bleu2","rouge","meteor"]
     # Check if CSV file exists; if not, create it with the header
     if not os.path.isfile(RESULTS_CSV):
         with open(RESULTS_CSV, mode='w', newline='') as file:
@@ -31,28 +31,39 @@ def write_results(model,epoch,type,loss,metrices):
         writer.writerow([config.NUM_CONFIG, model_name, type, epoch + 1, loss,
                          metrices["accuracy"], metrices["bleu1"], metrices["bleu2"], metrices["rouge"], metrices["meteor"]])
 
+def clean_sentence(tokens, remove_tokens={"<SOS>", "<EOS>", "<PAD>"}):
+    return [token for token in tokens if token not in remove_tokens]
+
 def compute_metrices(prediction, true_captions, metrices_dict):
 
     """
     - Add accuracy or not necessary?
     - max_order of bleu?
     """
+    predictions = [" ".join(clean_sentence(pred)) for pred in prediction]
+    references = [[" ".join(clean_sentence(reference))] for reference in true_captions]
+    
     bleu = evaluate.load('bleu')
     meteor = evaluate.load('meteor')
     rouge = evaluate.load('rouge')
 
-    bleu1 = bleu.compute(predictions=prediction, references=true_captions, max_order=1)
-    bleu2 = bleu.compute(predictions=prediction, references=true_captions, max_order=2)
+    bleu1 = bleu.compute(predictions=predictions, references=references, max_order=1)['bleu'] # ['bleu'] --> to get actual score
+    bleu2 = bleu.compute(predictions=predictions, references=references, max_order=2)['bleu']
 
-    res_rouge = rouge.compute(predictions=prediction, references=true_captions)
+    res_rouge = rouge.compute(predictions=predictions, references=references)
+    rouge_L = res_rouge['rougeL']  # Extract ROUGE-L 
 
-    res_meteor = meteor.compute(predictions=prediction, references=true_captions)
+    res_meteor = meteor.compute(predictions=predictions, references=references)["meteor"]
+
+    exact_matches = sum([1 if pred == ref[0] else 0 for pred, ref in zip(predictions, references)])
+    accuracy = exact_matches / len(predictions) if predictions else 0
 
     # Store results in dictionary and return it
-    metrices_dict['bleu1'] += bleu1
-    metrices_dict['bleu2'] += bleu2
-    metrices_dict['rouge'] += res_rouge
-    metrices_dict['meteor'] += res_meteor
+    metrices_dict['accuracy'] = metrices_dict.get('accuracy', 0) + accuracy
+    metrices_dict['bleu1'] = metrices_dict.get('bleu1', 0) + bleu1
+    metrices_dict['bleu2'] = metrices_dict.get('bleu2', 0) + bleu2
+    metrices_dict['rouge'] = metrices_dict.get('rouge', 0) + rouge_L
+    metrices_dict['meteor'] = metrices_dict.get('meteor', 0) + res_meteor
 
     return metrices_dict
 
@@ -61,7 +72,8 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
     model.train()
     total_loss = 0
     metrices = {'accuracy':0,
-                'bleu':0,
+                'bleu1':0,
+                'bleu2':0,
                 'rouge':0,
                 'meteor':0}
 
@@ -81,7 +93,6 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
         #print("ORIGINAL OUTPUT SHAPE",outputs.shape)
         outputs = outputs.permute(0, 2, 1)  # Now shape is [batch_size, seq_len, vocab_size]
         #print("PERMUTED OUTPUT SHAPE",outputs.shape)
-        print('\nshape output argmax', outputs.shape) 
 
         # Loss
         loss = criterion(outputs,captions)
@@ -89,7 +100,6 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
         optimizer.step()
         total_loss += loss.item()
         outputs = outputs.argmax(dim=-2)
-        print('shape output argmax', outputs.shape) 
 
         predicted_texts = []
         for sequence in outputs:
@@ -111,8 +121,8 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
             true_texts.append([dataset.idx2word[idx] for idx in sentence])
 
 
-        print("\n\nPREDICTED TEXTS: ", predicted_texts)
-        print("\nTRUE TEXTS: ", true_texts)
+        #print("\n\nPREDICTED TEXTS: ", predicted_texts)
+        #print("\nTRUE TEXTS: ", true_texts)
 
         # Metrices
         metrices = compute_metrices(predicted_texts,true_texts,metrices)
@@ -120,7 +130,7 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
     metrices = {key: value / len(train_loader) for key, value in metrices.items()}
     write_results(model,epoch,type,total_loss,metrices)
 
-def test_model(model, test_loader, dataset, gt, criterion, epoch, type="test"):
+def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
     model.eval()
     total_loss = 0
     metrices = {'accuracy':0,
@@ -140,7 +150,7 @@ def test_model(model, test_loader, dataset, gt, criterion, epoch, type="test"):
             total_loss += loss.item()
 
             # Metrices
-            metrices = compute_metrices(outputs,gt,metrices)
+            metrices = compute_metrices(outputs,captions,metrices)
 
     metrices = {key: value / len(test_loader) for key, value in metrices.items()}
     write_results(model,epoch,type,total_loss,metrices)  

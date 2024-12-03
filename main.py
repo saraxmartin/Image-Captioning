@@ -72,7 +72,7 @@ for model_function, model_name in zip(name_models, names):
         CRITERION = selected_config["CRITERION"]()  # Loss function
         OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"]) 
         train_model(model, train_loader, dataset,OPTIMIZER, CRITERION, epoch)
-        test_model(model, val_loader, dataset,OPTIMIZER, CRITERION, epoch, type="val")
+        #test_model(model, val_loader, dataset,OPTIMIZER, CRITERION, epoch, type="val")
         print("\n")
 
 

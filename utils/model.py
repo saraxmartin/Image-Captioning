@@ -8,14 +8,16 @@ from torchvision.models import DenseNet201_Weights, ResNet50_Weights, VGG16_Weig
 class EncoderCNN(nn.Module):
     def __init__(self, base_model, model_name, embed_size=1024):
         super(EncoderCNN, self).__init__()
-        
         # Use the pretrained base model
         if model_name == "densenet201":
-            self.base_model = base_model(pretrained=True, weights=DenseNet201_Weights.DEFAULT)
+            weights = DenseNet201_Weights.DEFAULT  
+            self.base_model = base_model(weights=weights)
         elif model_name == "resnet50":
-            self.base_model = base_model(pretrained=True, weights=ResNet50_Weights.DEFAULT)
+            weights = weights=ResNet50_Weights.DEFAULT
+            self.base_model = base_model(weights=weights)
         elif model_name == "vgg16":
-            self.base_model = base_model(pretrained=True, weights=VGG16_Weights.DEFAULT)
+            weights=VGG16_Weights.DEFAULT
+            self.base_model = base_model(weights=weights)
         else:
             raise Exception("MODEL NOT SUPORTED")
         # Identify and replace the final layer of the base model
@@ -116,6 +118,7 @@ class Attention(nn.Module):
 class CaptioningModel(nn.Module):
     def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size, attention_size):
         super(CaptioningModel, self).__init__()
+        self.name = model_name
         self.encoder = EncoderCNN(base_model, model_name, embed_size)
         self.decoder = DecoderLSTM(embed_size, hidden_size, vocab_size, attention_size) #with attention
     
