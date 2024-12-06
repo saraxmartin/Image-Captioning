@@ -4,6 +4,7 @@ import os
 import config
 import evaluate
 from utils.dataset import FoodDataset
+import torch.nn as nn
 
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -67,17 +68,6 @@ def compute_metrices(prediction, true_captions, metrices_dict):
 
     return metrices_dict
 
-
-def compute_loss(output, labels, criterion, pad_idx, sos_idx, eos_idx):
-    # Mask valid tokens (exclude PAD, SOS, and EOS)
-    valid_mask = (labels != pad_idx) & (labels != sos_idx) & (labels != eos_idx)
-
-    # Compute loss only on valid tokens
-    loss = criterion(output, labels)
-    loss = loss * valid_mask.float()
-
-    return loss.sum() / valid_mask.sum()
-
 def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type="train"):
     model.train()
     total_loss = 0
@@ -97,13 +87,41 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
 
         # Forward pass
         outputs = model(images, captions)
-        #print("ORIGINAL OUTPUT SHAPE",outputs.shape)
+
+        # Permute the output to shape [batch_size, vocab_size, seq_len]
         outputs = outputs.permute(0, 2, 1)  # Now shape is [batch_size, seq_len, vocab_size]
-        #print("PERMUTED OUTPUT SHAPE",outputs.shape)
+        print("Shape of outputs after permute:", outputs.shape)
+
+        # Flatten the outputs to [batch_size * seq_len, vocab_size]
+        outputs_flat = outputs.contiguous().view(-1, outputs.size(2))  # Flatten output (batch_size * seq_len, vocab_size)
+        print("Shape of outputs_flat:", outputs_flat.shape)
+
+        # Flatten captions to [batch_size * seq_len]
+        captions_flat = captions.view(-1)  # Flatten captions (batch_size * seq_len)
+        print("Shape of captions_flat:", captions_flat.shape)
+
+        # Create mask for PAD (0), SOS (1), and EOS (2)
+        mask = (captions_flat != 0) & (captions_flat != 1) & (captions_flat != 2)  # Mask PAD (0), SOS (1), EOS (2)
+
+        print("Shape of mask:", mask.shape)
+        # Reshape outputs_flat to [batch_size * seq_len, vocab_size]
+        outputs_flat = outputs.permute(0, 2, 1).contiguous().view(-1, outputs.size(1))  # [batch_size * seq_len, vocab_size]
+
+        # Apply mask to both the outputs_flat and captions_flat
+        outputs_flat = outputs_flat[mask]  # Apply mask to output
+        captions_flat = captions_flat[mask]  # Apply mask to captions
+
+
+        print("Shape of outputs_flat after mask:", outputs_flat.shape)
+        print("Shape of captions_flat after mask:", captions_flat.shape)
+
+        # Now you can calculate the loss
+        loss = criterion(outputs_flat, captions_flat)
 
         # Loss
-        #loss = criterion(outputs, captions)
-        loss = compute_loss(outputs, captions, criterion, pad_idx=0, sos_idx=1, eos_idx=2)
+        pad_idx = 0
+        criterion = nn.CrossEntropyLoss(ignore_index=pad_idx)  # Use pad_idx for exclusion in CrossEntropyLoss
+        loss = criterion(outputs_flat, captions_flat)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()

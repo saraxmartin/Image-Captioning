@@ -1,12 +1,12 @@
 import torch.nn as nn
 import torch.optim as optim
 
-NUM_CONFIG = 2
+NUM_CONFIG = 1
 
 configs = {
     1:  # Configuration 1
         {
-        "LEARNING_RATE": 0.001,
+        "LEARNING_RATE": 0.0001,
         "CRITERION": nn.CrossEntropyLoss,  
         "OPTIMIZER": optim.Adam, 
         "FC_LAYERS": [512, 256, 128],
@@ -15,7 +15,7 @@ configs = {
     },
     2:  # Configuration 2
         {
-        "LEARNING_RATE": 0.00005,
+        "LEARNING_RATE": 0.0005,
         "CRITERION": nn.MSELoss,
         "OPTIMIZER": optim.SGD,
         "FC_LAYERS": [1024, 512],
@@ -25,7 +25,7 @@ configs = {
 
     3:  # Configuration 3
         {
-        "LEARNING_RATE": 0.01,
+        "LEARNING_RATE": 0.00001,
         "CRITERION": nn.CrossEntropyLoss,
         "OPTIMIZER": optim.RMSprop,
         "FC_LAYERS": [2048, 1024, 512],

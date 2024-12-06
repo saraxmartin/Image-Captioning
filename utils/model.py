@@ -57,10 +57,17 @@ class DecoderLSTM(nn.Module):
         self.fc_out = nn.Linear(hidden_size, vocab_size)
 
     def forward(self, features, captions):
+        teacher_forcing_ratio = 0.5
         # word sequence
         print("Max caption index:", captions.max().item())
         print("Vocab size:", self.vocab_size)
+        batch_size = captions.size(0)
+        max_len = captions.size(1)  # Sequence length (including SOS/EOS tokens)
+        vocab_size = self.vocab_size
+        hidden_size = features.size(-1)
 
+        # Prepare outputs tensor
+        outputs = torch.zeros(batch_size, max_len, vocab_size).to(features.device)
         embedded_captions = self.embedding(captions)
         #print("embedded_captions vector:", embedded_captions.shape)
 
@@ -81,16 +88,29 @@ class DecoderLSTM(nn.Module):
 
         context = context.expand(-1, -1, 256)
         #print("Context after expand to hidden_size dim:", context.shape)
+        inputs = captions[:, 0]  # Start with the <SOS> token
+        for t in range(1, max_len):
+            embedded_input = self.embedding(inputs).unsqueeze(1)
+            lstm_input = torch.cat((embedded_input, context[:, t - 1:t]), dim=2)  # Concatenate [16,11,256] -> [16,11,256+256]
+            #print("Input LSTM size:", lstm_input.shape) #[16,11,512]
+            #lstm_out = self.lstm(lstm_input)
+            lstm_out, (h_n, c_n) = self.lstm(lstm_input)
+            # Get predicted output word
+            output = self.fc_out(lstm_out)
+            #print("Output LSTM size:", lstm_out.shape)
+            output = output.squeeze(1)
+            pad_idx = 0
+            sos_idx = 1
+            eos_idx = 2
+            output[:, pad_idx] = float('-inf')  # Set logit for padding token to -inf
+            output[:, sos_idx] = float('-inf') 
+            output[:, eos_idx] = float('-inf') 
+            outputs[:, t, :] = output
+            # Decide whether to use teacher forcing
+            teacher_force = torch.rand(1).item() < teacher_forcing_ratio
+            inputs = captions[:, t] if teacher_force else output.argmax(dim=1)
 
-
-        lstm_input = torch.cat((embedded_captions, context), dim=2)  # Concatenate [16,11,256] -> [16,11,256+256]
-        #print("Input LSTM size:", lstm_input.shape) #[16,11,512]
-        #lstm_out = self.lstm(lstm_input)
-        lstm_out, (h_n, c_n) = self.lstm(lstm_input)
-        # Get predicted output word
-        output = self.fc_out(lstm_out)
-        #print("Output LSTM size:", lstm_out.shape)
-        return output
+        return outputs
     
 
 
