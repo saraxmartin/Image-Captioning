@@ -28,13 +28,15 @@ class EncoderCNN(nn.Module):
             in_features = self.base_model.fc.in_features
             self.base_model.fc = nn.Identity()  # Remove the final layer
         elif isinstance(self.base_model, models.VGG):
-            #-1 as it is Sequential module that contains multiple layers (last responsible producing the final predictions).
-            in_features = self.base_model.classifier[-1].in_features 
+            # classifier[0] refers to the first fully connected layer after flattening the convolutional output
+            # The input to this layer is 25088 features (flattened output from the last convolutional layer)
+            in_features = self.base_model.classifier[0].in_features  # 25088 for VGG16
             self.base_model.classifier = nn.Identity()  # Remove the final layer
         else:
             raise ValueError("Unsupported model")
         
         # Add additional layers
+        print("In features:", in_features)
         self.embed = nn.Linear(in_features, embed_size)  # Fully connected embedding layer
         self.dropout = nn.Dropout(p=0.5)  # Dropout for regularization
         self.prelu = nn.PReLU()  # Parametric ReLU activation function
@@ -42,8 +44,12 @@ class EncoderCNN(nn.Module):
     def forward(self, images):
         # Extract features from the base model
         features = self.base_model(images)
-        
+        # Apply global average pooling if output is 4D, like VGG
+        if features.dim() > 2: #this is in case last layer isnt removed, 
+            features = nn.functional.adaptive_avg_pool2d(features, (1, 1))  # Reduce to (batch_size, 512, 1, 1) ex: (16,512,1,1)
+            features = features.view(features.size(0), -1)  # Flatten to (batch_size, 512) ex (16,512)
         # Apply additional layers
+        print((self.prelu(features)).size())
         embeddings = self.embed(self.dropout(self.prelu(features)))
         return embeddings
 

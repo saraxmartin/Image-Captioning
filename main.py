@@ -50,8 +50,8 @@ test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # Configure models
-name_models = [models.densenet201, models.vgg16, models.resnet50]
-names = ["densenet201","vgg16","resnet50"]
+name_models = [models.vgg16,models.densenet201, models.resnet50]
+names = ["vgg16","densenet201","resnet50"]
 
 
 #for images, captions in train_loader:
@@ -68,7 +68,7 @@ for model_function, model_name in zip(name_models, names):
     model = model.to(DEVICE)
     
     for epoch in range(NUM_EPOCHS):
-        print(f"\nEPOCH {epoch+1}/{NUM_EPOCHS}: ")
+        print(f"\n{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}: ")
         CRITERION = selected_config["CRITERION"]()  # Loss function
         OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"]) 
         train_model(model, train_loader, dataset,OPTIMIZER, CRITERION, epoch)
