@@ -55,9 +55,17 @@ def compute_metrices(prediction, true_captions, metrices_dict):
     rouge_L = res_rouge['rougeL']  # Extract ROUGE-L 
 
     res_meteor = meteor.compute(predictions=predictions, references=references)["meteor"]
-
-    exact_matches = sum([1 if pred == ref[0] else 0 for pred, ref in zip(predictions, references)])
-    accuracy = exact_matches / len(predictions) if predictions else 0
+    total = 0
+    count = 0
+    for pred, ref in zip(predictions, references):
+        for p, r in zip(pred,ref[0]):
+            if p == r:
+                count+=1
+            total+=1
+            
+        print(f"Prediction: {pred}, Reference: {ref}")
+    
+    accuracy = count/ total if predictions else 0
 
     # Store results in dictionary and return it
     metrices_dict['accuracy'] = metrices_dict.get('accuracy', 0) + accuracy

@@ -113,8 +113,8 @@ class DecoderLSTM(nn.Module):
             output[:, eos_idx] = float('-inf') 
             outputs[:, t, :] = output
             # Decide whether to use teacher forcing
-            teacher_force = torch.rand(1).item() < teacher_forcing_ratio
-            inputs = captions[:, t] if teacher_force else output.argmax(dim=1)
+            #teacher_force = torch.rand(1).item() < teacher_forcing_ratio
+            inputs = captions[:, t] #if teacher_force else output.argmax(dim=1)
 
         return outputs
     
