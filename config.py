@@ -61,4 +61,3 @@ configs = {
     }
 }
 
-NUM_CONFIG = 1
