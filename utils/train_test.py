@@ -3,7 +3,6 @@ import csv
 import os
 import config
 import evaluate
-from utils.dataset import FoodDataset
 import torch.nn as nn
 
 
@@ -16,13 +15,7 @@ def initialize_storage():
     os.makedirs("results/", exist_ok=True)
     os.makedirs("results/statistics", exist_ok=True)
     os.makedirs("utils/saved_models", exist_ok=True)
-    # Define header of the file
-    header = ["config","model","type","epoch","loss","accuracy","bleu1","bleu2","rouge","meteor"]
-    # Check if CSV file exists; if not, create it with the header
-    if not os.path.isfile(RESULTS_CSV):
-        with open(RESULTS_CSV, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(header)
+    
 
 def write_results(model,epoch,type,loss,metrices):
      with open(RESULTS_CSV, mode='a', newline='') as file:
@@ -87,7 +80,7 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
 
     for images, captions in train_loader:
         #print("IMAGES:", images)
-        print("CAPTIONS:", captions)
+        #print("CAPTIONS:", captions)
         #print("REORGANIZE CAPTIONS:", captions)
         images, captions = images.to(DEVICE), captions.to(DEVICE)
 
@@ -137,12 +130,12 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
 
         predicted_texts = []
         for sequence in outputs:
-            print("\nSEQUENCE", sequence, "\nSHAPE sequence", sequence.shape)
+            #print("\nSEQUENCE", sequence, "\nSHAPE sequence", sequence.shape)
             sentence = []
             for idx in sequence:
                 idx = int(idx)
                 sentence.append(dataset.idx2word[idx])  # Convert index to word
-            print("SENTENCE", sentence, "\nSHAPE sentence", len(sentence))
+            #print("SENTENCE", sentence, "\nSHAPE sentence", len(sentence))
             predicted_texts.append([sentence])  # Join words to form a sentence
         if isinstance(predicted_texts[0], list):  # Check if it's a list of lists
             predicted_texts = [idx for sublist in predicted_texts for idx in sublist]

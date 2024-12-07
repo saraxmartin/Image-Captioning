@@ -36,7 +36,7 @@ class EncoderCNN(nn.Module):
             raise ValueError("Unsupported model")
         
         # Add additional layers
-        print("In features:", in_features)
+        #print("In features:", in_features)
         self.embed = nn.Linear(in_features, embed_size)  # Fully connected embedding layer
         self.dropout = nn.Dropout(p=0.5)  # Dropout for regularization
         self.prelu = nn.PReLU()  # Parametric ReLU activation function
@@ -49,7 +49,7 @@ class EncoderCNN(nn.Module):
             features = nn.functional.adaptive_avg_pool2d(features, (1, 1))  # Reduce to (batch_size, 512, 1, 1) ex: (16,512,1,1)
             features = features.view(features.size(0), -1)  # Flatten to (batch_size, 512) ex (16,512)
         # Apply additional layers
-        print((self.prelu(features)).size())
+        #print((self.prelu(features)).size())
         embeddings = self.embed(self.dropout(self.prelu(features)))
         return embeddings
 
@@ -95,6 +95,10 @@ class DecoderLSTM(nn.Module):
         context = context.expand(-1, -1, 256)
         #print("Context after expand to hidden_size dim:", context.shape)
         inputs = captions[:, 0]  # Start with the <SOS> token
+        pad_idx = 0
+        sos_idx = 1
+        eos_idx = 2
+        unk_idx = 3
         for t in range(1, max_len):
             embedded_input = self.embedding(inputs).unsqueeze(1)
             lstm_input = torch.cat((embedded_input, context[:, t - 1:t]), dim=2)  # Concatenate [16,11,256] -> [16,11,256+256]
@@ -105,16 +109,15 @@ class DecoderLSTM(nn.Module):
             output = self.fc_out(lstm_out)
             #print("Output LSTM size:", lstm_out.shape)
             output = output.squeeze(1)
-            pad_idx = 0
-            sos_idx = 1
-            eos_idx = 2
             output[:, pad_idx] = float('-inf')  # Set logit for padding token to -inf
             output[:, sos_idx] = float('-inf') 
             output[:, eos_idx] = float('-inf') 
+            output[:, unk_idx] = float('-inf')
             outputs[:, t, :] = output
-            # Decide whether to use teacher forcing
-            #teacher_force = torch.rand(1).item() < teacher_forcing_ratio
-            inputs = captions[:, t] #if teacher_force else output.argmax(dim=1)
+            
+            # Use teacher forcing
+            teacher_force = torch.rand(1).item() < teacher_forcing_ratio
+            inputs = captions[:, t] if teacher_force else output.argmax(dim=1)
 
         return outputs
     

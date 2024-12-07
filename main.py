@@ -3,19 +3,20 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms, models
 import pandas as pd
+import os
+import csv
 
 import config
 from utils.dataset import FoodDataset
 from utils.train_test import initialize_storage, train_model, test_model
 from utils.model import CaptioningModel
-import nltk
 
 # GLOBAL VARIABLES
 IMAGES_DIR = 'data/images/'
 CAPTIONS_DIR = "data/info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
 BATCH_SIZE = 32
-NUM_EPOCHS = 20
+NUM_EPOCHS = 50
 EMBEDDING_DIM = 256
 HIDDEN_DIM = 256
 selected_config = config.configs[config.NUM_CONFIG]
@@ -24,7 +25,16 @@ ACTIVATIONS = selected_config["ACTIVATIONS"]
 BATCH_NORMS = selected_config["BATCH_NORMS"]
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
 initialize_storage()
+results = 'results/results.csv'
+header = ['Config', 'Model', 'Type', 'Epoch', 'Loss', 'Accuracy', 'Bleu1' , 'Bleu2', 'Rouge', 'Meteor']
+# Check if CSV file exists; if not, create it with the header
+if not os.path.isfile(results):
+    with open(results, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(header)
+        print('hi')
 
 # Data transfpormation
 transform = transforms.Compose([transforms.Resize((256, 256)),
