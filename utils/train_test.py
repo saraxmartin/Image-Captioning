@@ -1,9 +1,18 @@
 import torch
 import csv
 import os
-import config
 import evaluate
 import torch.nn as nn
+import pandas as pd
+import matplotlib.pyplot as plt
+import sys
+
+# Add the parent directory to the Python path
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+sys.path.append(parent_dir)
+
+# Import the config module
+import config
 
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -182,4 +191,51 @@ def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
     metrices = {key: value / len(test_loader) for key, value in metrices.items()}
     write_results(model,epoch,type,total_loss,metrices)  
     
+def plot_metrics_and_save(csv_file_path, output_folder=None, metrics=['Loss', 'Accuracy']):
+    """
+    Plots the specified metrics for train and test sets for different models and saves the plots as images.
 
+    Parameters:
+    - csv_file_path (str): Full path to the CSV file.
+    - output_folder (str): Path to the folder where images will be saved (default is the same directory as the CSV file).
+    - metrics (list): List of metrics to plot (default is ['Loss', 'Accuracy']).
+    """
+    #load the data
+    data = pd.read_csv(csv_file_path)
+
+    #ensure the 'Type' column is treated as categorical, not numerical
+    data['Type'] = data['Type'].astype('category')
+
+    #if no output folder is specified, use the directory of the CSV file
+    if output_folder is None:
+        output_folder = os.path.dirname(csv_file_path)
+
+    #make sure output folder exists
+    os.makedirs(output_folder, exist_ok=True)
+
+    #loop through each metric
+    for metric in metrics:
+        plt.figure(figsize=(12, 6))
+        for model in data['Model'].unique():
+            for data_type in data['Type'].cat.categories:
+                subset = data[(data['Model'] == model) & (data['Type'] == data_type)]
+                if not subset.empty:
+                    plt.plot(subset['Epoch'], subset[metric], label=f'{model} - {data_type}')
+
+        plt.title(f'{metric} vs Epoch')
+        plt.xlabel('Epoch')
+        plt.ylabel(metric)
+        plt.legend()
+        plt.grid()
+
+        #save the plot
+        sanitized_metric = metric.replace(' ', '_').lower()
+        file_name = f"{sanitized_metric}_plot.png"
+        save_path = os.path.join(output_folder, file_name)
+        plt.savefig(save_path)
+        print(f"Saved plot to {save_path}")
+        plt.close()  # Close the plot to free memory
+
+
+csv_file_path = "./results/results.csv"
+plot_metrics_and_save(csv_file_path, metrics=['Bleu1', 'Bleu2', 'Rouge', 'Meteor1'])
