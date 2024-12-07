@@ -17,8 +17,8 @@ CAPTIONS_DIR = "data/info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
 BATCH_SIZE = 32
 NUM_EPOCHS = 50
-EMBEDDING_DIM = 256
-HIDDEN_DIM = 256
+EMBEDDING_DIM = 1024
+HIDDEN_DIM = 1024
 selected_config = config.configs[config.NUM_CONFIG]
 FC_LAYERS = selected_config["FC_LAYERS"]
 ACTIVATIONS = selected_config["ACTIVATIONS"]
@@ -30,11 +30,10 @@ initialize_storage()
 results = 'results/results.csv'
 header = ['Config', 'Model', 'Type', 'Epoch', 'Loss', 'Accuracy', 'Bleu1' , 'Bleu2', 'Rouge', 'Meteor']
 # Check if CSV file exists; if not, create it with the header
-if not os.path.isfile(results):
-    with open(results, mode='w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(header)
-        print('hi')
+#if not os.path.isfile(results):
+with open(results, mode='w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(header)
 
 # Data transfpormation
 transform = transforms.Compose([transforms.Resize((256, 256)),

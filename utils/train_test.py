@@ -91,20 +91,20 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
 
         # Permute the output to shape [batch_size, vocab_size, seq_len]
         outputs = outputs.permute(0, 2, 1)  # Now shape is [batch_size, seq_len, vocab_size]
-        print("Shape of outputs after permute:", outputs.shape)
+        #print("Shape of outputs after permute:", outputs.shape)
 
         # Flatten the outputs to [batch_size * seq_len, vocab_size]
         outputs_flat = outputs.contiguous().view(-1, outputs.size(2))  # Flatten output (batch_size * seq_len, vocab_size)
-        print("Shape of outputs_flat:", outputs_flat.shape)
+        #print("Shape of outputs_flat:", outputs_flat.shape)
 
         # Flatten captions to [batch_size * seq_len]
         captions_flat = captions.view(-1)  # Flatten captions (batch_size * seq_len)
-        print("Shape of captions_flat:", captions_flat.shape)
+        #print("Shape of captions_flat:", captions_flat.shape)
 
         # Create mask for PAD (0), SOS (1), and EOS (2)
         mask = (captions_flat != 0) & (captions_flat != 1) & (captions_flat != 2)  # Mask PAD (0), SOS (1), EOS (2)
 
-        print("Shape of mask:", mask.shape)
+        #print("Shape of mask:", mask.shape)
         # Reshape outputs_flat to [batch_size * seq_len, vocab_size]
         outputs_flat = outputs.permute(0, 2, 1).contiguous().view(-1, outputs.size(1))  # [batch_size * seq_len, vocab_size]
 
@@ -113,8 +113,8 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
         captions_flat = captions_flat[mask]  # Apply mask to captions
 
 
-        print("Shape of outputs_flat after mask:", outputs_flat.shape)
-        print("Shape of captions_flat after mask:", captions_flat.shape)
+        #print("Shape of outputs_flat after mask:", outputs_flat.shape)
+        #print("Shape of captions_flat after mask:", captions_flat.shape)
 
         # Now you can calculate the loss
         loss = criterion(outputs_flat, captions_flat)
@@ -139,8 +139,8 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
             predicted_texts.append([sentence])  # Join words to form a sentence
         if isinstance(predicted_texts[0], list):  # Check if it's a list of lists
             predicted_texts = [idx for sublist in predicted_texts for idx in sublist]
-        print("\nKeys in idx2word:", dataset.idx2word.keys())
-        print("\nValues in idx2word:", dataset.idx2word.items())
+        #print("\nKeys in idx2word:", dataset.idx2word.keys())
+        #print("\nValues in idx2word:", dataset.idx2word.items())
         predicted_texts = [dataset.idx2word[int(idx)] if str(idx).isdigit() else idx for idx in predicted_texts]
 
         true_texts = []

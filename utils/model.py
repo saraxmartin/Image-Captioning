@@ -63,7 +63,7 @@ class DecoderLSTM(nn.Module):
         self.fc_out = nn.Linear(hidden_size, vocab_size)
 
     def forward(self, features, captions):
-        teacher_forcing_ratio = 0.5
+        teacher_forcing_ratio = 0.5 #fixed
         # word sequence
         print("Max caption index:", captions.max().item())
         print("Vocab size:", self.vocab_size)
@@ -92,7 +92,8 @@ class DecoderLSTM(nn.Module):
         context = context.expand(-1, embedded_captions.size(1), -1)
         #print("Context after expand:", context.shape)  # shape: [16, 11, 1]
 
-        context = context.expand(-1, -1, 256)
+        #context = context.expand(-1, -1, 256)
+        context = context.expand(-1, -1, embedded_captions.shape[-1])
         #print("Context after expand to hidden_size dim:", context.shape)
         inputs = captions[:, 0]  # Start with the <SOS> token
         pad_idx = 0
