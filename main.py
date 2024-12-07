@@ -16,9 +16,10 @@ IMAGES_DIR = 'data/images/'
 CAPTIONS_DIR = "data/info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
 BATCH_SIZE = 32
-NUM_EPOCHS = 50
+NUM_EPOCHS = 75
 EMBEDDING_DIM = 1024
 HIDDEN_DIM = 1024
+ATTENTION_DIM = 1024
 selected_config = config.configs[config.NUM_CONFIG]
 FC_LAYERS = selected_config["FC_LAYERS"]
 ACTIVATIONS = selected_config["ACTIVATIONS"]
@@ -73,7 +74,7 @@ gt = dataset.idx2word
 #print("NEW VOCAB SIZE", VOCAB_SIZE)
 # Train and validation loop
 for model_function, model_name in zip(name_models, names):
-    model = CaptioningModel(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE, attention_size = 256)
+    model = CaptioningModel(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE, ATTENTION_DIM)
     model = model.to(DEVICE)
     
     for epoch in range(NUM_EPOCHS):

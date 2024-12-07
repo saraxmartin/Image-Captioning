@@ -3,10 +3,8 @@ import torch.nn as nn
 from torchvision import models
 from torchvision.models import DenseNet201_Weights, ResNet50_Weights, VGG16_Weights
 
-
-
 class EncoderCNN(nn.Module):
-    def __init__(self, base_model, model_name, embed_size=1024):
+    def __init__(self, base_model, model_name, embed_size):
         super(EncoderCNN, self).__init__()
         # Use the pretrained base model
         if model_name == "densenet201":
@@ -54,7 +52,7 @@ class EncoderCNN(nn.Module):
         return embeddings
 
 class DecoderLSTM(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, attention_size=512):
+    def __init__(self, embed_size, hidden_size, vocab_size, attention_size):
         super(DecoderLSTM, self).__init__()
         self.vocab_size = vocab_size
         self.embedding = nn.Embedding(vocab_size, embed_size)
@@ -65,8 +63,8 @@ class DecoderLSTM(nn.Module):
     def forward(self, features, captions):
         teacher_forcing_ratio = 0.5 #fixed
         # word sequence
-        print("Max caption index:", captions.max().item())
-        print("Vocab size:", self.vocab_size)
+        #print("Max caption index:", captions.max().item())
+        #print("Vocab size:", self.vocab_size)
         batch_size = captions.size(0)
         max_len = captions.size(1)  # Sequence length (including SOS/EOS tokens)
         vocab_size = self.vocab_size
@@ -87,22 +85,19 @@ class DecoderLSTM(nn.Module):
 
         context = context.unsqueeze(1) # [16,1] -> [16,1,1]
         #print("Context after unsqueeze:", context.shape)
-        
-        #print("Embedded size(1)", embedded_captions.size(1)) 
-        context = context.expand(-1, embedded_captions.size(1), -1)
-        #print("Context after expand:", context.shape)  # shape: [16, 11, 1]
-
-        #context = context.expand(-1, -1, 256)
-        context = context.expand(-1, -1, embedded_captions.shape[-1])
+ 
+        # shape [batch_size, seq_len, hidden_dim]
+        context = context.expand(-1, embedded_captions.size(1), embedded_captions.shape[-1]) 
         #print("Context after expand to hidden_size dim:", context.shape)
+
         inputs = captions[:, 0]  # Start with the <SOS> token
         pad_idx = 0
         sos_idx = 1
         eos_idx = 2
         unk_idx = 3
         for t in range(1, max_len):
-            embedded_input = self.embedding(inputs).unsqueeze(1)
-            lstm_input = torch.cat((embedded_input, context[:, t - 1:t]), dim=2)  # Concatenate [16,11,256] -> [16,11,256+256]
+            embedded_input = self.embedding(inputs).unsqueeze(1) # Shape: [batch_size, 1, embed_size]
+            lstm_input = torch.cat((embedded_input, context[:, t - 1:t]), dim=2)  # Shape: [batch_size, 1, embed_size + hidden_size]
             #print("Input LSTM size:", lstm_input.shape) #[16,11,512]
             #lstm_out = self.lstm(lstm_input)
             lstm_out, (h_n, c_n) = self.lstm(lstm_input)
@@ -119,6 +114,10 @@ class DecoderLSTM(nn.Module):
             # Use teacher forcing
             teacher_force = torch.rand(1).item() < teacher_forcing_ratio
             inputs = captions[:, t] if teacher_force else output.argmax(dim=1)
+
+            # Stop if we hit the EOS token in the ground truth sequence
+            if (captions[:, t] == eos_idx).all():
+                break
 
         return outputs
     
