@@ -189,7 +189,11 @@ def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
             metrices = compute_metrices(outputs,captions,metrices)
 
     metrices = {key: value / len(test_loader) for key, value in metrices.items()}
+    
+    # Saving metrics and doing plots
     write_results(model,epoch,type,total_loss,metrices)  
+    csv_file_path = "./results/results.csv"
+    plot_metrics_and_save(csv_file_path, metrics=['Bleu1', 'Bleu2', 'Rouge', 'Meteor1'])
     
 def plot_metrics_and_save(csv_file_path, output_folder=None, metrics=['Loss', 'Accuracy']):
     """
@@ -237,5 +241,4 @@ def plot_metrics_and_save(csv_file_path, output_folder=None, metrics=['Loss', 'A
         plt.close()  # Close the plot to free memory
 
 
-csv_file_path = "./results/results.csv"
-plot_metrics_and_save(csv_file_path, metrics=['Bleu1', 'Bleu2', 'Rouge', 'Meteor1'])
+
