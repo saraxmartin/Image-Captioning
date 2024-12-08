@@ -63,7 +63,7 @@ class FoodDataset(Dataset):
             self.all_words.extend(self.preprocess_captions(image_caption))
 
             i+=1
-            if i==20:
+            if i==80:
                 break
         # Convert the lexicon set to a list
         self.data_properties['lexicon'] = list(self.data_properties['lexicon'])
@@ -99,6 +99,7 @@ class FoodDataset(Dataset):
 
     def __getitem__(self, idx):
         image_id = self.images[idx]
+        #print("CAPTIONSSS:", self.captions)
         caption = self.captions[idx]
         caption = self.preprocess_captions(caption, pad=True)
         caption_indices = [self.word2idx.get(word, self.word2idx["<UNK>"]) for word in caption] #if word not in the vocab then "UNK" 

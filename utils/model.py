@@ -57,7 +57,7 @@ class DecoderLSTM(nn.Module):
         self.vocab_size = vocab_size
         self.embedding = nn.Embedding(vocab_size, embed_size)
         self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size)
-        self.attention = Attention(hidden_size, attention_size)
+        self.attention = AoA_GatedAttention(hidden_size, attention_size) 
         self.fc_out = nn.Linear(hidden_size, vocab_size)
 
     def forward(self, features, captions):
@@ -112,8 +112,8 @@ class DecoderLSTM(nn.Module):
             outputs[:, t, :] = output
             
             # Use teacher forcing
-            teacher_force = torch.rand(1).item() < teacher_forcing_ratio
-            inputs = captions[:, t] if teacher_force else output.argmax(dim=1)
+            #teacher_force = torch.rand(1).item() < teacher_forcing_ratio
+            inputs = captions[:, t] #if teacher_force else output.argmax(dim=1)
 
             # Stop if we hit the EOS token in the ground truth sequence
             if (captions[:, t] == eos_idx).all():
@@ -123,27 +123,44 @@ class DecoderLSTM(nn.Module):
     
 
 
-class Attention(nn.Module):
+class AoA_GatedAttention(nn.Module):
     def __init__(self, hidden_size, attention_size):
-        super(Attention, self).__init__()
+        super(AoA_GatedAttention, self).__init__()
         
-        # Attention parameters
+        # First attention layer: standard attention mechanism
         self.attn = nn.Linear(hidden_size, attention_size)
         self.context = nn.Linear(attention_size, 1)
         
+        # Second attention layer: Attention on Attention
+        self.attn_on_attn = nn.Linear(1, attention_size)
+        self.context_on_attn = nn.Linear(attention_size, 1)
+        
+        # Gating mechanism
+        self.gate = nn.Sigmoid()  # Sigmoid gate to refine attention weights
+        
     def forward(self, features):
-        # Calculate attention scores based on features and hidden state
+        # Step 1: Apply initial attention
         attn_weights = torch.tanh(self.attn(features))
         attn_scores = self.context(attn_weights)
         
         # Normalize attention scores using softmax
         attn_weights = torch.softmax(attn_scores, dim=1)
         
-        # Get context vector based on attention weights
-        context = torch.sum(attn_weights * features, dim=1)
+        # Step 2: Apply AoA (Attention on Attention)
+        attn_weights_on_weights = torch.tanh(self.attn_on_attn(attn_scores))
+        refined_attn_scores = self.context_on_attn(attn_weights_on_weights)
         
-        return context, attn_weights
-    
+        # Normalize refined attention scores
+        refined_attn_weights = torch.softmax(refined_attn_scores, dim=1)
+        
+        # Step 3: Apply gating mechanism to refine attention weights
+        gated_attn_weights = refined_attn_weights * self.gate(refined_attn_weights)  # Apply gate
+        
+        # Get context vector based on gated attention weights
+        context = torch.sum(gated_attn_weights * features, dim=1)
+        
+        return context, gated_attn_weights
+
 class CaptioningModel(nn.Module):
     def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size, attention_size):
         super(CaptioningModel, self).__init__()

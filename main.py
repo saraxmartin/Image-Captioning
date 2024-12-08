@@ -15,7 +15,7 @@ from utils.model import CaptioningModel
 IMAGES_DIR = 'data/images/'
 CAPTIONS_DIR = "data/info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 NUM_EPOCHS = 75
 EMBEDDING_DIM = 1024
 HIDDEN_DIM = 1024

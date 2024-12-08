@@ -6,7 +6,7 @@ NUM_CONFIG = 1
 configs = {
     1:  # Configuration 1
         {
-        "LEARNING_RATE": 0.0001,
+        "LEARNING_RATE": 0.0005,
         "CRITERION": nn.CrossEntropyLoss,  
         "OPTIMIZER": optim.Adam, 
         "FC_LAYERS": [512, 256, 128],

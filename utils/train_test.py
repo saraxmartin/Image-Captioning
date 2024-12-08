@@ -34,32 +34,44 @@ def write_results(model,epoch,type,loss,metrices):
         writer.writerow([config.NUM_CONFIG, model_name, type, epoch + 1, loss,
                          metrices["accuracy"], metrices["bleu1"], metrices["bleu2"], metrices["rouge"], metrices["meteor"]])
 
-def clean_sentence(tokens, remove_tokens={"<SOS>", "<EOS>", "<PAD>"}):
-    return [token for token in tokens if token not in remove_tokens]
+def clean_lists(pred, gt):
+    cleaned_pred = []
+    cleaned_gt = []
+    for p, g in zip(pred, gt):
+        # Remove <SOS>, <EOS>, and <PAD> from gt
+        g_cleaned = [word for word in g if word not in ('<SOS>', '<EOS>', '<PAD>')]
+        
+        # Find indices to retain in pred
+        retain_indices = [i for i, word in enumerate(g) if word not in ('<SOS>', '<EOS>', '<PAD>')]
+        
+        # Filter pred based on retain indices
+        p_cleaned = [p[i] for i in retain_indices]
+        
+        # Append cleaned lists
+        cleaned_gt.append(g_cleaned)
+        cleaned_pred.append(p_cleaned)
+    
+    return cleaned_pred, cleaned_gt
 
 def compute_metrices(prediction, true_captions, metrices_dict):
-
-    """
-    - Add accuracy or not necessary?
-    - max_order of bleu?
-    """
-    predictions = [" ".join(clean_sentence(pred)) for pred in prediction]
-    references = [[" ".join(clean_sentence(reference))] for reference in true_captions]
-    
+    pred_cleaned, gt_cleaned = clean_lists(prediction, true_captions)
+    # Ensure predictions are strings (join tokens with spaces)
+    pred_cleaned = [' '.join(p) for p in pred_cleaned]
+    # Ensure references are formatted as a list of lists of strings
+    gt_cleaned = [[' '.join(g)] for g in gt_cleaned]
     bleu = evaluate.load('bleu')
     meteor = evaluate.load('meteor')
     rouge = evaluate.load('rouge')
+    bleu1 = bleu.compute(predictions=pred_cleaned, references=gt_cleaned, max_order=1)['bleu'] # ['bleu'] --> to get actual score
+    bleu2 = bleu.compute(predictions=pred_cleaned, references=gt_cleaned, max_order=2)['bleu']
 
-    bleu1 = bleu.compute(predictions=predictions, references=references, max_order=1)['bleu'] # ['bleu'] --> to get actual score
-    bleu2 = bleu.compute(predictions=predictions, references=references, max_order=2)['bleu']
-
-    res_rouge = rouge.compute(predictions=predictions, references=references)
+    res_rouge = rouge.compute(predictions=pred_cleaned, references=gt_cleaned)
     rouge_L = res_rouge['rougeL']  # Extract ROUGE-L 
 
-    res_meteor = meteor.compute(predictions=predictions, references=references)["meteor"]
+    res_meteor = meteor.compute(predictions=pred_cleaned, references=gt_cleaned)["meteor"]
     total = 0
     count = 0
-    for pred, ref in zip(predictions, references):
+    for pred, ref in zip(pred_cleaned, gt_cleaned):
         for p, r in zip(pred,ref[0]):
             if p == r:
                 count+=1
@@ -67,7 +79,7 @@ def compute_metrices(prediction, true_captions, metrices_dict):
             
         print(f"Prediction: {pred}, Reference: {ref}")
     
-    accuracy = count/ total if predictions else 0
+    accuracy = count/ total if pred_cleaned else 0
 
     # Store results in dictionary and return it
     metrices_dict['accuracy'] = metrices_dict.get('accuracy', 0) + accuracy
@@ -92,7 +104,6 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
         #print("CAPTIONS:", captions)
         #print("REORGANIZE CAPTIONS:", captions)
         images, captions = images.to(DEVICE), captions.to(DEVICE)
-
         optimizer.zero_grad()
 
         # Forward pass
@@ -128,9 +139,6 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
         # Now you can calculate the loss
         loss = criterion(outputs_flat, captions_flat)
 
-        # Loss
-        pad_idx = 0
-        criterion = nn.CrossEntropyLoss(ignore_index=pad_idx)  # Use pad_idx for exclusion in CrossEntropyLoss
         loss = criterion(outputs_flat, captions_flat)
         loss.backward()
         optimizer.step()
