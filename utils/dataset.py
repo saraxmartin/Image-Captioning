@@ -63,7 +63,7 @@ class FoodDataset(Dataset):
             self.all_words.extend(self.preprocess_captions(image_caption))
 
             i+=1
-            if i==80:
+            if i==20:
                 break
         # Convert the lexicon set to a list
         self.data_properties['lexicon'] = list(self.data_properties['lexicon'])
