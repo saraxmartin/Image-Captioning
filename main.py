@@ -15,7 +15,7 @@ from utils.model import CaptioningModel
 IMAGES_DIR = 'data/images/'
 CAPTIONS_DIR = "data/info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
-BATCH_SIZE = 64
+BATCH_SIZE = 16
 NUM_EPOCHS = 75
 EMBEDDING_DIM = 1024
 HIDDEN_DIM = 1024
@@ -70,6 +70,7 @@ names = ["vgg16","densenet201","resnet50"]
     #print("Captions:",captions)
 
 VOCAB_SIZE = len(dataset.word2idx)
+print("V:", VOCAB_SIZE)
 gt = dataset.idx2word
 #print("NEW VOCAB SIZE", VOCAB_SIZE)
 # Train and validation loop

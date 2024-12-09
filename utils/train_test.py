@@ -122,15 +122,15 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
         #print("Shape of captions_flat:", captions_flat.shape)
 
         # Create mask for PAD (0), SOS (1), and EOS (2)
-        #mask = (captions_flat != 0) & (captions_flat != 1) & (captions_flat != 2)  # Mask PAD (0), SOS (1), EOS (2)
+        mask = (captions_flat != 0) & (captions_flat != 1) & (captions_flat != 2)  # Mask PAD (0), SOS (1), EOS (2)
 
         #print("Shape of mask:", mask.shape)
         # Reshape outputs_flat to [batch_size * seq_len, vocab_size]
         outputs_flat = outputs.permute(0, 2, 1).contiguous().view(-1, outputs.size(1))  # [batch_size * seq_len, vocab_size]
 
         # Apply mask to both the outputs_flat and captions_flat
-        #outputs_flat = outputs_flat[mask]  # Apply mask to output
-        #captions_flat = captions_flat[mask]  # Apply mask to captions
+        outputs_flat = outputs_flat[mask]  # Apply mask to output
+        captions_flat = captions_flat[mask]  # Apply mask to captions
 
 
         #print("Shape of outputs_flat after mask:", outputs_flat.shape)
