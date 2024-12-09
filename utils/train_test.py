@@ -77,7 +77,7 @@ def compute_metrices(prediction, true_captions, metrices_dict):
                 count+=1
             total+=1
             
-        print(f"Prediction: {pred}, Reference: {ref}")
+        print(f"PREDICTION: {pred}, REFERENCE: {ref}")
     
     accuracy = count/ total if pred_cleaned else 0
 
@@ -122,7 +122,7 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
         #print("Shape of captions_flat:", captions_flat.shape)
 
         # Create mask for PAD (0), SOS (1), and EOS (2)
-        mask = (captions_flat != 0) & (captions_flat != 1) & (captions_flat != 2)  # Mask PAD (0), SOS (1), EOS (2)
+        mask = (captions_flat != 0) & (captions_flat != 1) & (captions_flat != 2) & (captions_flat != 3) # Mask PAD (0), SOS (1), EOS (2)
 
         #print("Shape of mask:", mask.shape)
         # Reshape outputs_flat to [batch_size * seq_len, vocab_size]
@@ -163,6 +163,18 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
         true_texts = []
         for sentence in captions.cpu().numpy():
             true_texts.append([dataset.idx2word[idx] for idx in sentence])
+
+        # Storing the image with its corresponding prediction and gt captions
+        with open(csv_file_path, mode='w', newline='', encoding='utf-8') as csvfile:
+            # Create a CSV writer object
+            csv_writer = csv.writer(csvfile)
+
+            # Write the header
+            csv_writer.writerow(["Image Name", "Predicted Caption", "Ground Truth Caption"])
+
+            # Write a row for each image
+            csv_writer.writerow([image_name, predicted_caption, ground_truth_caption])
+
 
 
         #print("\n\nPREDICTED TEXTS: ", predicted_texts)
