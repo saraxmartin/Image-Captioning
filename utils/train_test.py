@@ -165,16 +165,13 @@ def train_model(model, train_loader, dataset, optimizer, criterion, epoch, type=
             true_texts.append([dataset.idx2word[idx] for idx in sentence])
 
         # Storing the image with its corresponding prediction and gt captions
-        with open(csv_file_path, mode='w', newline='', encoding='utf-8') as csvfile:
+        with open('results/captions.csv', mode='w', newline='', encoding='utf-8') as csvfile:
             # Create a CSV writer object
             csv_writer = csv.writer(csvfile)
-
-            # Write the header
-            csv_writer.writerow(["Image Name", "Predicted Caption", "Ground Truth Caption"])
-
-            # Write a row for each image
-            csv_writer.writerow([image_name, predicted_caption, ground_truth_caption])
-
+            # Iterate over your images and captions
+            for image_name, predicted_caption, ground_truth_caption in zip(images, predicted_texts, true_texts):
+                # Write a row for each image
+                csv_writer.writerow([image_name, predicted_caption, ground_truth_caption])
 
 
         #print("\n\nPREDICTED TEXTS: ", predicted_texts)

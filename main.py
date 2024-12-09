@@ -29,12 +29,18 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 initialize_storage()
 results = 'results/results.csv'
-header = ['Config', 'Model', 'Type', 'Epoch', 'Loss', 'Accuracy', 'Bleu1' , 'Bleu2', 'Rouge', 'Meteor']
+caption_results = 'results/captions.csv'
+header1 = ['Config', 'Model', 'Type', 'Epoch', 'Loss', 'Accuracy', 'Bleu1' , 'Bleu2', 'Rouge', 'Meteor']
+header2 = ['Image', 'Predicted', 'GT']
 # Check if CSV file exists; if not, create it with the header
 #if not os.path.isfile(results):
 with open(results, mode='w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(header)
+    writer.writerow(header1)
+with open(caption_results, mode='w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(header2)
+
 
 # Data transfpormation
 transform = transforms.Compose([transforms.Resize((256, 256)),
