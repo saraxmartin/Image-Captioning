@@ -1,1 +1,17 @@
-Image, Predicted, GT
+Image,Predicted,GT
+"['<PAD>', 'fish', 'fish', 'fish', 'fish', 'fish', 'cherry', 'cherry', 'fish', 'cherry', 'cherry']","['<SOS>', '3', 'ingredient', 'caramel', 'apple', 'hand', 'pie', '<EOS>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', '15', '15', 'chip', '15', '15', '15', '15', '15', 'chip', '15']","['<SOS>', '15', 'minute', 'chicken', 'paillards', 'red', 'cabbage', 'onion', 'slaw', '<EOS>', '<PAD>']"
+"['<PAD>', 'cherry', 'cherry', 'fish', 'cherry', 'biscuit', 'skillet', 'cherry', 'biscuit', 'biscuit', 'skillet']","['<SOS>', '3', 'ingredient', 'cheese', 'sauce', '<EOS>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', 'skillet', 'skillet', 'fish', 'skillet', 'skillet', 'skillet', 'skillet', 'caramel', 'caramel', 'skillet']","['<SOS>', '3', 'ingredient', 'blueberry', 'champagne', 'granita', '<EOS>', '<PAD>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', 'skillet', 'skillet', 'fish', 'skillet', 'caramel', 'fish', 'cherry', 'caramel', 'skillet', 'caramel']","['<SOS>', '3', 'ingredient', 'charred', 'green', 'bean', 'ricotta', 'lemon', '<EOS>', '<PAD>', '<PAD>']"
+"['<PAD>', 'fish', 'cherry', 'fish', 'fish', 'biscuit', 'biscuit', 'cherry', 'biscuit', 'cherry', 'biscuit']","['<SOS>', 'charro', 'bean', '<EOS>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', 'fish', 'cherry', 'fish', 'fish', 'biscuit', 'fish', 'cherry', 'biscuit', 'cherry', 'cherry']","['<SOS>', '3', 'ingredient', 'buttermilk', 'biscuit', '<EOS>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', 'fish', 'cherry', 'fish', 'fish', 'biscuit', 'fish', 'cherry', 'biscuit', 'cherry', 'cherry']","['<SOS>', '3', 'ingredient', 'caramel', 'apple', 'tart', '<EOS>', '<PAD>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', 'fish', 'biscuit', 'fish', 'fish', 'biscuit', 'fish', 'cherry', 'biscuit', 'biscuit', 'biscuit']","['<SOS>', '12', 'minute', 'saucy', 'chicken', 'breast', 'lime', '<EOS>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', 'fish', 'biscuit', 'fish', 'fish', 'biscuit', 'biscuit', 'biscuit', 'biscuit', 'biscuit', 'biscuit']","['<SOS>', '2', 'minute', 'chocolate', 'chip', 'pecan', 'cookie', '<EOS>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', 'chip', 'chip', 'chip', 'chip', 'chip', 'chip', 'skillet', 'whaler', 'chip', 'chip']","['<SOS>', '10', 'minute', 'chicken', 'flatbread', 'hummus', 'yogurt', '<EOS>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', 'pepe', 'biscuit', 'charred', 'skillet', 'paillards', 'whaler', 'creamy', 'creamy', 'chip', 'pie']","['<SOS>', '22', 'minute', 'pad', 'thai', '<EOS>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', 'fish', 'skillet', 'fish', 'fish', 'fish', 'fish', 'fish', 'fish', 'fish', 'fish']","['<SOS>', '3', 'ingredient', 'caramel', 'pear', 'galette', '<EOS>', '<PAD>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', '15', 'chip', 'chip', '15', 'chip', '15', 'chip', '15', 'chip', 'chip']","['<SOS>', '3', 'ingredient', 'cacio', 'e', 'pepe', 'pasta', 'cheese', 'pepper', '<EOS>', '<PAD>']"
+"['<PAD>', 'fish', 'skillet', 'skillet', 'cherry', 'biscuit', 'biscuit', 'cherry', 'biscuit', 'pasta', 'skillet']","['<SOS>', '24th', 'street', 'spritz', '<EOS>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>']"
+"['<PAD>', 'biscuit', 'cherry', 'skillet', 'cherry', 'biscuit', 'cherry', 'cherry', 'biscuit', 'cherry', 'biscuit']","['<SOS>', '1', '2', '3', '4', 'cake', '<EOS>', '<PAD>', '<PAD>', '<PAD>', '<PAD>']"

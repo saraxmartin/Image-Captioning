@@ -31,7 +31,7 @@ initialize_storage()
 results = 'results/results.csv'
 caption_results = 'results/captions.csv'
 header1 = ['Config', 'Model', 'Type', 'Epoch', 'Loss', 'Accuracy', 'Bleu1' , 'Bleu2', 'Rouge', 'Meteor']
-header2 = ['Image', 'Predicted', 'GT']
+header2 = ['Predicted', 'GT']
 # Check if CSV file exists; if not, create it with the header
 #if not os.path.isfile(results):
 with open(results, mode='w', newline='') as file:
