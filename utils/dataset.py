@@ -5,6 +5,7 @@ from PIL import Image
 import re
 import nltk
 from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -15,6 +16,18 @@ from collections import Counter
 
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="seaborn")
+
+# Install ntlk data once
+#nltk_data_dir = ".venv/nltk_data"
+#nltk.download("punkt", nltk_data_dir, quiet=True)
+#nltk.download("stopwords", nltk_data_dir, quiet=True)
+#nltk.download("omw-1.4", nltk_data_dir, quiet=True)
+#nltk.download("wordnet", nltk_data_dir, quiet=True)
+# Get them once
+lemmatizer = WordNetLemmatizer()
+stop_words = set(stopwords.words("english"))
+#import logging
+#logging.getLogger("nltk").setLevel(logging.ERROR)
 
 class FoodDataset(Dataset):
     def __init__(self, captions_df, images_dir, transform=None, type="char"):
@@ -42,13 +55,16 @@ class FoodDataset(Dataset):
             
             # Obtain image name without ending format
             image_name = os.path.splitext(os.path.basename(image_path))[0]
-            
-            # Save image path
-            self.images.append(full_path)
-            
+             
             # Get captions for image
             image_caption = captions_df.loc[captions_df['Image_Name'] == image_name, 'Title'].squeeze()
-            #print("IMAGE CAPTION ", image_caption)
+            
+            # Error
+            if isinstance(image_caption, pd.Series):
+                continue
+
+            # Append caption and image to the lists
+            self.images.append(full_path)
             self.captions.append(image_caption)
             
             # Load image to get properties
@@ -63,7 +79,7 @@ class FoodDataset(Dataset):
             self.all_words.extend(self.preprocess_captions(image_caption))
 
             i+=1
-            if i==20:
+            if i==5000:
                 break
         # Convert the lexicon set to a list
         self.data_properties['lexicon'] = list(self.data_properties['lexicon'])
@@ -79,10 +95,11 @@ class FoodDataset(Dataset):
         return len(self.images)
     
     def preprocess_captions(self, sent, pad=False):
-        lemmatizer = WordNetLemmatizer()
-        sent = sent.lower()
+        try:
+            sent = sent.lower()
+        except:
+            print(sent)
         words = nltk.word_tokenize(sent)
-        stop_words = set(nltk.corpus.stopwords.words("english"))
         words = [lemmatizer.lemmatize(word) for word in words if word not in stop_words]
         words = [word for word in words if not re.match(r'^[^\w]+$', word)]
         words = [subword for word in words for subword in re.split(r'\W+', word) if subword]
@@ -99,13 +116,13 @@ class FoodDataset(Dataset):
 
     def __getitem__(self, idx):
         image_id = self.images[idx]
-        #print("CAPTIONSSS:", self.captions)
         caption = self.captions[idx]
         caption = self.preprocess_captions(caption, pad=True)
         caption_indices = [self.word2idx.get(word, self.word2idx["<UNK>"]) for word in caption] #if word not in the vocab then "UNK" 
         caption_tensor = torch.tensor(caption_indices, dtype=torch.long)
         #print("PREPROCESSED CAPTION: ", caption)
-        #print("PREPROCESSED CAPTION INDICES", caption_indices)
+        #print("PREPROCESSED CAPTION INDICES: ", caption_indices)
+        #print("PREPROCESSED CAPTION TENSOR: ",caption_tensor)
         image = Image.open(image_id).convert('RGB')
 
         if self.transform:
