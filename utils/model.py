@@ -159,6 +159,84 @@ class DecoderLSTM(nn.Module):
 
             return outputs
 
+class AdditiveAttention(nn.Module):
+    def __init__(self, hidden_size, attention_size):
+        super(AdditiveAttention, self).__init__()
+        self.encoder_proj = nn.Linear(hidden_size, attention_size)
+        self.decoder_proj = nn.Linear(hidden_size, attention_size)
+        self.energy = nn.Linear(attention_size, 1)
+        self.softmax = nn.Softmax(dim=1)
+
+    def forward(self, encoder_outputs, decoder_hidden):
+        # Project encoder outputs and decoder hidden state to attention_size
+        encoder_proj = self.encoder_proj(encoder_outputs)  # [batch_size, seq_len, attention_size]
+        decoder_proj = self.decoder_proj(decoder_hidden).unsqueeze(1)  # [batch_size, 1, attention_size]
+        print(f"Encoder linear: {encoder_proj.shape}")
+        print(f"Decoder linear: {encoder_proj.shape}")
+
+        # Compute  scores
+        scores = torch.tanh(encoder_proj + decoder_proj)  # [batch_size, seq_len, attention_size]
+        scores = self.energy(scores).squeeze(-1)  # [batch_size, seq_len]
+
+        # Compute attention weights over encoder outputs (probabilities)
+        attention_weights = self.softmax(scores)  # [batch_size, seq_len]
+
+        # Compute context vector as weighted sum of encoder outputs
+        context = torch.bmm(attention_weights.unsqueeze(1), encoder_outputs)  # [batch_size, 1, hidden_size]
+        context = context.squeeze(1)  # [batch_size, hidden_size] weighted sum of encoder outputs
+
+        return context, attention_weights
+
+class DecoderLSTM_new(nn.Module):
+    def __init__(self, embed_size, hidden_size, vocab_size, attention_size, teacher_forcing):
+        super(DecoderLSTM, self).__init__()
+        self.vocab_size = vocab_size
+        self.hidden_size = hidden_size
+        self.teacher_forcing_ratio = teacher_forcing
+
+        self.embedding = nn.Embedding(vocab_size, embed_size)
+        self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size)
+        self.attention = AdditiveAttention(hidden_size, attention_size)
+        self.fc_out = nn.Linear(hidden_size, vocab_size)
+
+    def forward(self, encoder_outputs, captions):
+        # encoder_outputs [batch_size, seq_len, hidden_size]
+        # captions [batch_size, max_len]
+
+        batch_size, max_len = captions.size(0), captions.size(1)
+        outputs = torch.zeros(batch_size, max_len, self.vocab_size).to(encoder_outputs.device)
+
+        # Initialize hidden and cell states for the LSTM
+        h, c = torch.zeros(1, batch_size, self.hidden_size).to(encoder_outputs.device), \
+               torch.zeros(1, batch_size, self.hidden_size).to(encoder_outputs.device)
+
+        # Start decoding with the <SOS> token
+        inputs = captions[:, 0]  # [batch_size]
+
+        for t in range(1, max_len):
+            embedded_captions = self.embedding(inputs).unsqueeze(1)  # [batch_size, 1, embed_size]
+            print("0.Embedded captions:", embedded_captions.shape)
+            context, att_weights = self.attention(encoder_outputs, h.squeeze(0))  # [batch_size, hidden_size]
+            print("1.Context vector:",context.shape)
+            print("1.Attention weigths:", att_weights.shape)
+            
+            # Concatenate context vector with embedded input
+            lstm_input = torch.cat((embedded_captions, context.unsqueeze(1)), dim=2)  # [batch_size, 1, embed_size + hidden_size]
+            print("3. LSTM input:", lstm_input.shape)
+
+            lstm_out, (h, c) = self.lstm(lstm_input, (h, c))
+            print("3. LSTM output:", lstm_out.shape)
+            print("Hidden state: ", h.shape, h)
+
+            # Generate output word scores
+            output = self.fc_out(h.squeeze(0))  # [batch_size, vocab_size]
+            outputs[:, t, :] = output
+
+            teacher_force = torch.rand(1).item() < self.teacher_forcing_ratio
+            inputs = captions[:, t] if teacher_force else output.argmax(dim=1)
+
+        return outputs
+
 
 class AoA_GatedAttention(nn.Module):
     def __init__(self, hidden_size, attention_size):
