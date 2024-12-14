@@ -210,11 +210,11 @@ class DecoderLSTM_new(nn.Module):
         # captions [batch_size, max_len]
 
         batch_size, max_len = captions.size(0), captions.size(1)
-        outputs = torch.zeros(batch_size, max_len, self.vocab_size).to(encoder_outputs.device)
+        outputs = torch.zeros(batch_size, max_len, self.vocab_size)
 
         # Initialize hidden and cell states for the LSTM
-        h, c = torch.zeros(1, batch_size, self.hidden_size).to(encoder_outputs.device), \
-               torch.zeros(1, batch_size, self.hidden_size).to(encoder_outputs.device)
+        h, c = torch.zeros(1, batch_size, self.hidden_size), \
+               torch.zeros(1, batch_size, self.hidden_size)
 
         # Start decoding with the <SOS> token
         inputs = captions[:, 0]  # [batch_size]
