@@ -59,10 +59,14 @@ class FoodDataset(Dataset):
             # Get captions for image
             image_caption = captions_df.loc[captions_df['Image_Name'] == image_name, 'Title'].squeeze()
             
-            # Error
-            if not isinstance(image_caption, pd.Series):
-                continue
+            # If no title exists, generate one using format_recipe_name
+            if pd.isna(image_caption):
+                image_caption = format_recipe_name(image_name)
 
+            # Error
+            if not isinstance(image_caption, str):
+                continue
+            
             # Append caption and image to the lists
             self.images.append(full_path)
             self.captions.append(image_caption)
@@ -132,6 +136,17 @@ class FoodDataset(Dataset):
 
         return image, caption_tensor
 
+def format_recipe_name(input_string):
+    # Split the string by '-'
+    parts = input_string.split('-')
+
+    # Remove numeric parts (if any)
+    parts = [part for part in parts if not part.isdigit()]
+
+    # Join the remaining parts with spaces and capitalize the first letter
+    formatted_string = ' '.join(parts).capitalize()
+
+    return formatted_string
 
 def bar_plots(width_stats, height_stats, title_length_stats):
     # Bar plot for Image Width and Height
