@@ -23,21 +23,27 @@ class EncoderCNN(nn.Module):
             in_features = self.base_model.classifier.in_features
             self.base_model.classifier = nn.Identity()  # Remove the final layer
             self.features = nn.Sequential(*list(self.base_model.features.children()))
+            self.output_dim = in_features
+            print(self.output_dim)
         elif isinstance(self.base_model, models.ResNet):
             in_features = self.base_model.fc.in_features
             self.base_model.fc = nn.Identity()  # Remove the final layer
             self.features = nn.Sequential(*list(self.base_model.children())[:-2])
+            self.output_dim = in_features
+            print(self.output_dim)
         elif isinstance(self.base_model, models.VGG):
             # classifier[0] refers to the first fully connected layer after flattening the convolutional output
             # The input to this layer is 25088 features (flattened output from the last convolutional layer)
             in_features = self.base_model.classifier[0].in_features  # 512 for VGG16
             self.base_model.classifier = nn.Identity()  # Remove the final layer
             self.features = nn.Sequential(*list(self.base_model.features.children()))
+            self.output_dim = 512  # VGG16 always outputs 512 channels
+            print(self.output_dim)
         else:
             raise ValueError("Unsupported model")
         
         # For NO attention: Add additional layers
-        self.embed = nn.Linear(in_features, embed_size)  # Fully connected embedding layer
+        self.embed = nn.Linear(self.output_dim, embed_size)  # Fully connected embedding layer
         self.dropout = nn.Dropout(p=0.5)  # Dropout for regularization
         self.prelu = nn.PReLU()  # Parametric ReLU activation function
         self.batch_norm = nn.BatchNorm1d(embed_size)  # Batch Normalization layer
@@ -59,8 +65,7 @@ class EncoderCNN(nn.Module):
             # Flatten the tensor along height and width dimensions to be used in a fully connected
             features = features.view(features.size(0), -1, features.size(-1))
             #print("3.Features shape: ", features.shape)
-            embed_layer = nn.Linear(features.size(2), self.embed_size) # Linear embedding to get equal dim for all backbones
-            features = embed_layer(features)
+            features = self.embed(features)
             #print("4.Features shape: ",features.shape)
             
             return features 
