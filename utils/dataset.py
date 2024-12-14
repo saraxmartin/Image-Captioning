@@ -60,7 +60,7 @@ class FoodDataset(Dataset):
             image_caption = captions_df.loc[captions_df['Image_Name'] == image_name, 'Title'].squeeze()
             
             # Error
-            if isinstance(image_caption, pd.Series):
+            if not isinstance(image_caption, pd.Series):
                 continue
 
             # Append caption and image to the lists
@@ -78,9 +78,9 @@ class FoodDataset(Dataset):
             self.data_properties['lexicon'].update(self.preprocess_captions(image_caption))
             self.all_words.extend(self.preprocess_captions(image_caption))
 
-            i+=1
-            if i==5000:
-                break
+            #i+=1
+            #if i==5000:
+            #    break
         # Convert the lexicon set to a list
         self.data_properties['lexicon'] = list(self.data_properties['lexicon'])
         self.build_vocab()
