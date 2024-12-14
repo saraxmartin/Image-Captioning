@@ -74,15 +74,16 @@ for model_function, model_name in zip(name_models, names):
     model = model.to(DEVICE)
     CRITERION = selected_config["CRITERION"]()  # Loss function
     OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"])
-    SCHEDULER = ExponentialLR(OPTIMIZER, gamma=0.95)  # Reduce LR by 5% per epoch
+    SCHEDULER = ExponentialLR(OPTIMIZER, gamma=1)  # Reduce LR by 5% per epoch
     
     for epoch in range(NUM_EPOCHS):
         current_lr = SCHEDULER.get_last_lr()[0]  # Get the current learning rate (assumes one LR group)
-        print(f"{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}")
+        print(f"{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}, lr {current_lr}")
         train_model(model, train_loader, dataset, OPTIMIZER, CRITERION, SCHEDULER, epoch)
         test_model(model, val_loader, dataset, CRITERION, epoch, type="val")
 
 # Save trained model
-#torch.save(model.state_dict(), f'utils/saved_models/{model.name}_config{config.NUM_CONFIG}.pth')
+torch.save(model.state_dict(), f'utils/saved_models/{model.name}_config{config.NUM_CONFIG}.pth')
 
 # Test
+test_model(model, test_loader, dataset, CRITERION, epoch, type="test")
