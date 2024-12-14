@@ -93,7 +93,7 @@ class DecoderLSTM(nn.Module):
         # Word embedding layer: converts words into vectors of fixed size (embed_size)
         self.embedding = nn.Embedding(vocab_size, embed_size)
         # LSTM layer
-        self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size)
+        self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size, batch_first=True)
         # Attention layer
         self.attention = AoA_GatedAttention(hidden_size, attention_size)
         # Linear layer: maps output of LSTM into the size of the vocabulary
@@ -132,6 +132,7 @@ class DecoderLSTM(nn.Module):
 
             # Pass the LSTM output through the linear layer to get the output scores for each word in the vocabulary
             outputs = self.fc_out(lstm_out)
+            #print("outputs: ", outputs.shape)
 
             """inputs = captions[:, 0]  # Start with the <SOS> token
             pad_idx = 0
@@ -176,8 +177,8 @@ class AdditiveAttention(nn.Module):
         # Project encoder outputs and decoder hidden state to attention_size
         encoder_proj = self.encoder_proj(encoder_outputs)  # [batch_size, seq_len, attention_size]
         decoder_proj = self.decoder_proj(decoder_hidden).unsqueeze(1)  # [batch_size, 1, attention_size]
-        print(f"Encoder linear: {encoder_proj.shape}")
-        print(f"Decoder linear: {encoder_proj.shape}")
+        #print(f"# Encoder linear: {encoder_proj.shape}")
+        #print(f"# Decoder linear: {decoder_proj.shape}")
 
         # Compute  scores
         scores = torch.tanh(encoder_proj + decoder_proj)  # [batch_size, seq_len, attention_size]
@@ -194,13 +195,13 @@ class AdditiveAttention(nn.Module):
 
 class DecoderLSTM_new(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, attention_size, teacher_forcing):
-        super(DecoderLSTM, self).__init__()
+        super(DecoderLSTM_new, self).__init__()
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.teacher_forcing_ratio = teacher_forcing
 
         self.embedding = nn.Embedding(vocab_size, embed_size)
-        self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size)
+        self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size, batch_first=True)
         self.attention = AdditiveAttention(hidden_size, attention_size)
         self.fc_out = nn.Linear(hidden_size, vocab_size)
 
@@ -220,22 +221,24 @@ class DecoderLSTM_new(nn.Module):
 
         for t in range(1, max_len):
             embedded_captions = self.embedding(inputs).unsqueeze(1)  # [batch_size, 1, embed_size]
-            print("0.Embedded captions:", embedded_captions.shape)
+            #print("0.Embedded captions:", embedded_captions.shape)
             context, att_weights = self.attention(encoder_outputs, h.squeeze(0))  # [batch_size, hidden_size]
-            print("1.Context vector:",context.shape)
-            print("1.Attention weigths:", att_weights.shape)
+            #print("1.Context vector:",context.shape)
+            #print("1.Attention weigths:", att_weights.shape)
             
             # Concatenate context vector with embedded input
             lstm_input = torch.cat((embedded_captions, context.unsqueeze(1)), dim=2)  # [batch_size, 1, embed_size + hidden_size]
-            print("3. LSTM input:", lstm_input.shape)
+            #print("3. LSTM input:", lstm_input.shape)
 
             lstm_out, (h, c) = self.lstm(lstm_input, (h, c))
-            print("3. LSTM output:", lstm_out.shape)
-            print("Hidden state: ", h.shape, h)
+            #print("3. LSTM output:", lstm_out.shape)
+            #print("Hidden state: ", h.shape)
 
             # Generate output word scores
-            output = self.fc_out(h.squeeze(0))  # [batch_size, vocab_size]
+            output = self.fc_out(lstm_out.squeeze(1))  # [batch_size, vocab_size]
+            #print("Output shape: ", output.shape)
             outputs[:, t, :] = output
+            #print("OUTPUTS: ", outputs.shape)
 
             teacher_force = torch.rand(1).item() < self.teacher_forcing_ratio
             inputs = captions[:, t] if teacher_force else output.argmax(dim=1)
@@ -291,7 +294,7 @@ class CaptioningModel(nn.Module):
         self.name = model_name
         self.encoder = EncoderCNN(base_model, model_name, embed_size)
         #print("ENCODER: ", self.encoder)
-        self.decoder = DecoderLSTM(embed_size, hidden_size, vocab_size, attention_size, teacher_forcing=0.5) #with attention
+        self.decoder = DecoderLSTM_new(embed_size, hidden_size, vocab_size, attention_size, teacher_forcing=0.5) #with attention
         #print("DECODER: ", self.decoder)
 
     def forward(self, images, captions):
