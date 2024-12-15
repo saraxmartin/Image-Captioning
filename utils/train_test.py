@@ -6,6 +6,8 @@ import torch.nn as nn
 import pandas as pd
 import matplotlib.pyplot as plt
 import sys
+from skimage.transform import resize
+import math
 
 # Add the parent directory to the Python path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
@@ -144,6 +146,89 @@ def get_captions(preds,gt,dataset):
         true_captions.append(caption_words)
     return pred_captions, true_captions
 
+def convert_captions(gt,dataset):
+    # Get the ground truth captions
+    true_captions = []
+    for caption in gt:
+        caption_words = [dataset.idx2word[word_idx.item()] for word_idx in caption]
+        true_captions.append(caption_words)
+    return true_captions
+
+def generate_valid_filename(caption_list):
+    #remove special tokens <SOS>, <EOS>, and <PAD>
+    filtered_caption = [word for word in caption_list if word not in ['<SOS>', '<EOS>', '<PAD>']]
+    
+    #join words into a string
+    caption_string = ' '.join(filtered_caption)
+    
+    #replace spaces and other invalid characters with underscores
+    valid_filename = caption_string.replace(' ', '_').replace('/', '_').replace('\\', '_')
+    
+    #optionally, limit the length of the filename to avoid too long filenames
+    valid_filename = valid_filename[:255]  #limit to 255 characters (common max length for filenames)
+    
+    return valid_filename
+
+def plot_attention(image, attention_weights, grid_size=None, type="train", caption="", save_dir=None):
+    """
+    Plot the original image and its attention map side by side, and save the result to a directory.
+    
+    Args:
+        image (torch.Tensor): The original image tensor (C, H, W).
+        attention_weights (torch.Tensor): Attention weights (num_regions, seq_len) or (num_regions,).
+        grid_size (tuple): Optional, Grid size of attention weights (e.g., (7, 7)).
+        type (str): Type of the dataset (train, val, test) to display in the title.
+        caption (str): Caption to be displayed on the original image and used in the saved filename.
+        save_dir (str): Directory to save the attention maps. If None, saves to the default location.
+    """
+    # Ensure attention_weights is 2D (num_regions, seq_len)
+    if attention_weights.dim() == 1:  # If attention_weights is (num_regions,)
+        attention_weights = attention_weights.unsqueeze(-1)  # Reshape to (num_regions, 1)
+
+    num_regions = attention_weights.size(0)  # Number of regions
+    seq_len = attention_weights.size(1)  # Sequence length (number of words)
+
+    # Infer grid size dynamically if not provided
+    if grid_size is None:
+        side_length = int(math.sqrt(num_regions))
+        grid_size = (side_length, side_length)
+
+    # Correct save directory path
+    if save_dir is None:
+        # Default save path: results/attention_maps in the root of the project
+        save_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'results', 'attention_maps')
+    
+    # Ensure the directory exists
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # Plot attention for each timestep
+    for t in range(seq_len):
+        attention_map = attention_weights[:, t].reshape(grid_size).detach().cpu().numpy()
+        attention_resized = resize(attention_map, (image.shape[1], image.shape[2]), mode='reflect')
+
+        fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+        
+        # Plot original image
+        ax[0].imshow(image.permute(1, 2, 0).cpu())
+        ax[0].set_title(f"Original Image ({type.capitalize()})")
+        ax[0].axis('off')
+
+        # Add the caption to the image (overlay text)
+        ax[0].text(0.5, 0.05, caption, ha='center', va='bottom', color='white', fontsize=12, weight='bold', transform=ax[0].transAxes)
+        
+        # Plot attention overlay
+        ax[1].imshow(image.permute(1, 2, 0).cpu())
+        ax[1].imshow(attention_resized, cmap='jet', alpha=0.5)
+        ax[1].set_title(f"Attention Map ({type.capitalize()} - Word {t+1})")
+        ax[1].axis('off')
+
+        # Save the figure with the caption in the filename
+        # Replace spaces with underscores to ensure a valid filename
+        save_path = os.path.join(save_dir, f"{caption}_attention_{t+1}.png")
+        plt.savefig(save_path)
+        plt.close()  # Close the figure to avoid display
+
 def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, epoch, type="train"):
     model.train()
     total_loss = 0
@@ -158,9 +243,10 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
         #print("CAPTIONS:", captions)
         images, captions = images.to(DEVICE), captions.to(DEVICE)
         optimizer.zero_grad()
+        true_captions = convert_captions(captions, dataset)
 
         # Forward pass
-        outputs = model(images, captions)
+        outputs, att_weights = model(images, captions)
         #print("Shape of outputs before reshape:", outputs.shape)
 
         # Get predictions
@@ -190,12 +276,20 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
 
         # Metrices
         metrices = compute_metrices(predicted_texts,true_texts,metrices)
+        last_images = images.detach().cpu()[-3:]
+        last_attention_weights = att_weights.detach().cpu()[-3:]
+        last_captions = true_captions[-3:]
 
     metrices = {key: value / len(train_loader) for key, value in metrices.items()}
     write_results(model,epoch,type,total_loss,metrices)
     write_captions_results(model,type,epoch,predicted_texts,true_texts)
 
     scheduler.step()
+
+    for i in range(len(last_images)):
+        current_caption = generate_valid_filename(last_captions[i])
+        plot_attention(last_images[i], last_attention_weights[i],caption=current_caption,type=type)
+
 
 def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
     model.eval()
@@ -211,7 +305,7 @@ def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
             images, captions = images.to(DEVICE), captions.to(DEVICE)
 
             # Output
-            outputs = model(images,captions)
+            outputs, att_weight = model(images,captions)
 
             # Predictions
             _, preds = torch.max(outputs,dim=2)
@@ -227,6 +321,15 @@ def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
 
             # Metrices
             metrices = compute_metrices(predicted_texts,true_texts,metrices)
+            last_images = images.detach().cpu()[-3:]
+            last_attention_weights = att_weight.detach().cpu()[-3:]
+            last_captions = true_texts[-3:]
+
+            if att_weight is not None:
+                for i in range(min(len(images), 3)):  # Show attention maps for up to 3 images
+                    current_caption = generate_valid_filename(last_captions[i])
+                    plot_attention(last_images[i], last_attention_weights[i],caption= current_caption,type='val')
+
 
     metrices = {key: value / len(test_loader) for key, value in metrices.items()}
     write_results(model,epoch,type,total_loss,metrices)

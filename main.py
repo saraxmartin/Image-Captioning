@@ -13,11 +13,11 @@ from utils.train_test import initialize_storage, train_model, test_model
 from utils.model import CaptioningModel
 
 # GLOBAL VARIABLES
-IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\images"
-CAPTIONS_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\info.csv"
+IMAGES_DIR = r"C:\Users\Iván\Desktop\Challenge 3 Vision & Learning\Image-Captioning\data\images"
+CAPTIONS_DIR = r"C:\Users\Iván\Desktop\Challenge 3 Vision & Learning\Image-Captioning\data\info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
 BATCH_SIZE = 16
-NUM_EPOCHS = 20
+NUM_EPOCHS = 10
 EMBEDDING_DIM = 512
 HIDDEN_DIM = 512
 ATTENTION_DIM = 256
