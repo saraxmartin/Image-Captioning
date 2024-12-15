@@ -69,7 +69,7 @@ for model_function, model_name in zip(name_models, names):
     model_gru = CaptioningModel_GRU(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
     model_gru = model_gru.to(DEVICE)
     CRITERION = selected_config["CRITERION"]()  # Loss function
-    OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"])
+    OPTIMIZER = selected_config["OPTIMIZER"](model_gru.parameters(), lr=selected_config["LEARNING_RATE"])
     SCHEDULER = ExponentialLR(OPTIMIZER, gamma=1)  # Reduce LR by 5% per epoch
     
     for epoch in range(NUM_EPOCHS):
