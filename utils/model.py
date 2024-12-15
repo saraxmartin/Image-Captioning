@@ -3,7 +3,9 @@ import torch.nn as nn
 from torchvision import models
 import torch.nn.functional as F
 from torchvision.models import DenseNet201_Weights, ResNet50_Weights, VGG16_Weights
-from main import DEVICE
+def get_device():
+    from main import DEVICE  # Move the import here, inside the function
+    return DEVICE
 
 
 class EncoderCNN(nn.Module):
@@ -212,9 +214,10 @@ class GRUDecoder(nn.Module):
         
 
     def forward(self, captions, h0):
+        device = get_device()
         # Move inputs to device
-        captions = captions.to(DEVICE)
-        h0 = h0.to(DEVICE)
+        captions = captions.to(device)
+        h0 = h0.to(device)
 
         # Embed captions
         embeddings = self.embedding(captions)  # (batch_size, seq_len, embedding_dim)
@@ -243,10 +246,11 @@ class LSTMDecoder(nn.Module):
         
 
     def forward(self, captions, h0, c0):
+        device = get_device()
         # Move inputs to device
-        captions = captions.to(DEVICE)
-        h0 = h0.to(DEVICE)
-        c0 = c0.to(DEVICE)
+        captions = captions.to(device)
+        h0 = h0.to(device)
+        c0 = c0.to(device)
 
         # Embed captions
         embeddings = self.embedding(captions)  # (batch_size, seq_len, embedding_dim)
@@ -273,24 +277,25 @@ class DecoderLSTM_new(nn.Module):
         self.fc_out = nn.Linear(hidden_size, vocab_size)
 
     def forward(self, encoder_outputs, captions):
+        device = get_device()
         # encoder_outputs [batch_size, seq_len, hidden_size]
         # captions [batch_size, max_len]
         #print(f"[DECODER] Encoder outputs device: {encoder_outputs.device}")
         #print(f"[DECODER] Captions device: {captions.device}")
         batch_size, max_len = captions.size(0), captions.size(1)
-        outputs = torch.zeros(batch_size, max_len, self.vocab_size).to(DEVICE)
+        outputs = torch.zeros(batch_size, max_len, self.vocab_size).to(device)
         #print(f"[DECODER] Outputs tensor initialized on device: {outputs.device}")
 
         # Initialize hidden and cell states for the LSTM
-        h, c = torch.zeros(1, batch_size, self.hidden_size).to(DEVICE), \
-               torch.zeros(1, batch_size, self.hidden_size).to(DEVICE)
+        h, c = torch.zeros(1, batch_size, self.hidden_size).to(device), \
+               torch.zeros(1, batch_size, self.hidden_size).to(device)
         #print(f"[DECODER] LSTM hidden state device: {h.device}, {c.device}")
 
         # Start decoding with the <SOS> token
         inputs = captions[:, 0]  # [batch_size]
 
         for t in range(1, max_len):
-            embedded_captions = self.embedding(inputs).unsqueeze(1).to(DEVICE)  # [batch_size, 1, embed_size]
+            embedded_captions = self.embedding(inputs).unsqueeze(1).to(device)  # [batch_size, 1, embed_size]
             #print(f"[DECODER] Embedded captions device (step {t}): {embedded_captions.device}")
             #print("0.Embedded captions:", embedded_captions.shape)
             context, att_weights = self.attention(encoder_outputs, h.squeeze(0))  # [batch_size, hidden_size]
@@ -393,12 +398,13 @@ class Attention(nn.Module):
 class CaptioningModel_GRU(nn.Module):
     def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size):
         super(CaptioningModel_GRU, self).__init__()
+        device = get_device()
         self.name = model_name
-        self.encoder = EncoderCNN(base_model, model_name, embed_size)
+        self.encoder = EncoderCNN(base_model, model_name, embed_size).to(device)
         #print("ENCODER: ", self.encoder)
-        self.decoder = GRUDecoder(hidden_size, vocab_size, embed_size) #with attention
+        self.decoder = GRUDecoder(hidden_size, vocab_size, embed_size).to(device) #with attention
         #print("DECODER: ", self.decoder)
-        self.attention = Attention(embed_size,hidden_size,ATTENTION_BRANCHES=1)
+        self.attention = Attention(embed_size,hidden_size,ATTENTION_BRANCHES=1).to(device)
 
     def forward(self, images, captions):
         features = self.encoder(images)
@@ -411,12 +417,13 @@ class CaptioningModel_GRU(nn.Module):
 class CaptioningModel_LSTM(nn.Module):
     def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size):
         super(CaptioningModel_LSTM, self).__init__()
+        device = get_device()
         self.name = model_name
-        self.encoder = EncoderCNN(base_model, model_name, embed_size).to(DEVICE)
+        self.encoder = EncoderCNN(base_model, model_name, embed_size).to(device)
         #print("ENCODER: ", self.encoder)
-        self.decoder = LSTMDecoder(hidden_size, vocab_size, embed_size).to(DEVICE) #with attention
+        self.decoder = LSTMDecoder(hidden_size, vocab_size, embed_size).to(device) #with attention
         #print("DECODER: ", self.decoder)
-        self.attention = Attention(embed_size,hidden_size,ATTENTION_BRANCHES=1).to(DEVICE)
+        self.attention = Attention(embed_size,hidden_size,ATTENTION_BRANCHES=1).to(device)
 
     def forward(self, images, captions):
         features = self.encoder(images)

@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import sys
 from skimage.transform import resize
 import math
-from main import DEVICE
 # Add the parent directory to the Python path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.append(parent_dir)
@@ -20,6 +19,10 @@ import config
 meteor = evaluate.load('meteor')
 bleu = evaluate.load('bleu')
 rouge = evaluate.load('rouge')
+
+def get_device():
+    from main import DEVICE  # Move the import here, inside the function
+    return DEVICE
 
 
 RESULTS_CSV = "results/results.csv"
@@ -241,14 +244,16 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
     for images, captions in train_loader:
         #print("IMAGES:", images)
         #print("CAPTIONS:", captions)
-        images, captions = images.to(DEVICE), captions.to(DEVICE)
+        device = get_device()
+        images, captions = images.to(device), captions.to(device)
         tar = captions
         optimizer.zero_grad()
         
         true_captions = convert_captions(captions, dataset)
 
         # Forward pass
-        outputs, att_weights = model(images, captions).to(DEVICE)
+        #outputs, att_weights = model(images, captions).to(device)
+        outputs, att_weights = model(images, captions)
         outputs_new = outputs
         #print("Outputs shape:", outputs.shape)
         #print("Shape of outputs before reshape:", outputs.shape)
@@ -285,9 +290,9 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
 
     scheduler.step()
 
-    for i in range(len(last_images)):
-        current_caption = generate_valid_filename(last_captions[i])
-        plot_attention(last_images[i], last_attention_weights[i],caption=current_caption,type=type)
+    #for i in range(len(last_images)):
+        #current_caption = generate_valid_filename(last_captions[i])
+        #plot_attention(last_images[i], last_attention_weights[i],caption=current_caption,type=type)
 
 def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, type="test"):
     model.eval()
@@ -300,7 +305,8 @@ def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, type="
     
     with torch.no_grad():
         for images, captions in test_loader:
-            images, captions = images.to(DEVICE), captions.to(DEVICE)
+            device = get_device()
+            images, captions = images.to(device), captions.to(device)
             tar = captions
             true_captions = convert_captions(captions, dataset)
 
@@ -330,10 +336,10 @@ def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, type="
             last_attention_weights = att_weights.detach().cpu()[-3:]
             last_captions = true_captions[-3:]
 
-            if att_weights  is not None:
-                for i in range(min(len(images), 3)):  # Show attention maps for up to 3 images
-                    current_caption = generate_valid_filename(last_captions[i])
-                    plot_attention(last_images[i], last_attention_weights[i],caption= current_caption,type='val')
+            #if att_weights  is not None:
+                #for i in range(min(len(images), 3)):  # Show attention maps for up to 3 images
+                    #current_caption = generate_valid_filename(last_captions[i])
+                    #plot_attention(last_images[i], last_attention_weights[i],caption= current_caption,type='val')
 
 
     metrices = {key: value / len(test_loader) for key, value in metrices.items()}

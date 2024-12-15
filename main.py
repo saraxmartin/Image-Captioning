@@ -13,11 +13,11 @@ from utils.model import CaptioningModel_GRU, CaptioningModel_LSTM
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # GLOBAL VARIABLES
-IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\images"
+IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\food_data\Food Images\images"
 CAPTIONS_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
-BATCH_SIZE = 64
-NUM_EPOCHS = 10
+BATCH_SIZE = 16
+NUM_EPOCHS = 100
 EMBEDDING_DIM = 256
 HIDDEN_DIM = 256
 selected_config = config.configs[config.NUM_CONFIG]
@@ -49,9 +49,9 @@ train_dataset, val_dataset, test_dataset = random_split(dataset, [0.8, 0.1, 0.1]
 #print(f"Number of images in test dataset: {len(test_dataset)}")
 
 # Create Dataloaders
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
-val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
+val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 # Configure models
 name_models = [models.vgg16,models.densenet201, models.resnet50]
@@ -66,10 +66,12 @@ gt = dataset.idx2word
 #print("NEW VOCAB SIZE", VOCAB_SIZE)
 # Train and validation loop
 for model_function, model_name in zip(name_models, names):
-    model_gru = CaptioningModel_GRU(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
-    model_gru = model_gru.to(DEVICE)
-    model_lstm = CaptioningModel_LSTM(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
-    model_lstm = model_lstm.to(DEVICE)
+    if a == 1:
+        model_gru = CaptioningModel_GRU(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
+        model_gru = model_gru.to(DEVICE)
+    else:
+        model_lstm = CaptioningModel_LSTM(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
+        model_lstm = model_lstm.to(DEVICE)
     CRITERION = selected_config["CRITERION"]()  # Loss function
     if a ==1:
         OPTIMIZER = selected_config["OPTIMIZER"](model_gru.parameters(), lr=selected_config["LEARNING_RATE"])
