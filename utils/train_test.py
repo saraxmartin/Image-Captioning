@@ -280,8 +280,8 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
         last_captions = true_captions[-3:]
 
     metrices = {key: value / len(train_loader) for key, value in metrices.items()}
-    loss = total_loss/ len(train_loader)
-    write_results(model,epoch,type,loss,metrices)
+    total_loss = total_loss/ len(train_loader)
+    write_results(model,epoch,type,total_loss,metrices)
     write_captions_results(model,type,epoch,predicted_texts,true_texts)
 
     scheduler.step()
@@ -338,8 +338,8 @@ def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, type="
 
 
     metrices = {key: value / len(test_loader) for key, value in metrices.items()}
-    loss = total_loss/ len(test_loader)
-    write_results(model,epoch,type,loss,metrices)
+    total_loss = total_loss/ len(test_loader)
+    write_results(model,epoch,type,total_loss,metrices)
     write_captions_results(model,type,epoch,predicted_texts,true_texts)
 
     
