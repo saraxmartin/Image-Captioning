@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import sys
 from skimage.transform import resize
 import math
-
 # Add the parent directory to the Python path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.append(parent_dir)
@@ -49,6 +48,7 @@ def write_results(model,epoch,type,loss,metrices):
      with open(RESULTS_CSV, mode='a', newline='') as file:
         writer = csv.writer(file)
         model_name = model.name if model != "Ensemble" else "Ensemble"
+        #model_name = model
         loss = f"{loss:.4f}" if loss is not None else "-"
         writer.writerow([config.NUM_CONFIG, model_name, type, epoch + 1, loss,
                          metrices["accuracy"], metrices["bleu1"], metrices["bleu2"], metrices["rouge"], metrices["meteor"]])
@@ -62,6 +62,7 @@ def write_captions_results(model, type, epoch, predicted_texts, true_texts):
         for predicted_caption, ground_truth_caption in zip(predicted_texts, true_texts):
             # Write a row for each image
             csv_writer.writerow([config.NUM_CONFIG, model.name, type, epoch+1, predicted_caption, ground_truth_caption])
+            #csv_writer.writerow([config.NUM_CONFIG, model, type, epoch+1, predicted_caption, ground_truth_caption])
 
 def clean_lists(pred, gt):
     cleaned_pred = []
@@ -229,7 +230,7 @@ def plot_attention(image, attention_weights, grid_size=None, type="train", capti
         plt.savefig(save_path)
         plt.close()  # Close the figure to avoid display
 
-def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, epoch, type="train"):
+def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, epoch, VOCAB_SIZE, type="train"):
     model.train()
     total_loss = 0
     metrices = {'accuracy':0,
@@ -242,28 +243,26 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
         #print("IMAGES:", images)
         #print("CAPTIONS:", captions)
         images, captions = images.to(DEVICE), captions.to(DEVICE)
+        tar = captions
         optimizer.zero_grad()
+        
         true_captions = convert_captions(captions, dataset)
 
         # Forward pass
         outputs, att_weights = model(images, captions)
+        outputs_new = outputs
+        #print("Outputs shape:", outputs.shape)
         #print("Shape of outputs before reshape:", outputs.shape)
+        outputs = outputs.view(-1, VOCAB_SIZE)
+        target = tar.contiguous().view(-1)
+        #print("Outputs shape:", outputs.shape)
 
         # Get predictions
-        _, preds = torch.max(outputs, dim=2)
+        _, preds = torch.max(outputs_new, dim=2)
         #print("PREDS",preds)
 
-        # Reshape output to [batch_size * sequence_lenght, vocab_size]
-        outputs = outputs.reshape(-1, outputs.shape[-1])
-        #print("Shape of outputs after reshape:", outputs.shape)
-
-        # Flatten captions to [batch_size * seq_len]
-        #print("Shape of captions:", captions.shape)
-        captions_flat = captions.reshape(-1)
-        #print("Reshape of captions:", captions_flat.shape)
-
         # Compute the loss
-        loss = criterion(outputs, captions_flat)
+        loss = criterion(outputs, target)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
@@ -281,7 +280,8 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
         last_captions = true_captions[-3:]
 
     metrices = {key: value / len(train_loader) for key, value in metrices.items()}
-    write_results(model,epoch,type,total_loss,metrices)
+    loss = total_loss/ len(train_loader)
+    write_results(model,epoch,type,loss,metrices)
     write_captions_results(model,type,epoch,predicted_texts,true_texts)
 
     scheduler.step()
@@ -289,7 +289,6 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
     for i in range(len(last_images)):
         current_caption = generate_valid_filename(last_captions[i])
         plot_attention(last_images[i], last_attention_weights[i],caption=current_caption,type=type)
-
 
 def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
     model.eval()
@@ -334,10 +333,7 @@ def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
     metrices = {key: value / len(test_loader) for key, value in metrices.items()}
     write_results(model,epoch,type,total_loss,metrices)
     write_captions_results(model,type,epoch,predicted_texts,true_texts)
-    
-    # Saving metrics and doing plots 
-    #csv_file_path = "./results/results.csv"
-    #plot_metrics_and_save(csv_file_path, metrics=['Bleu1', 'Bleu2', 'Rouge', 'Meteor1'])
+
     
 def plot_metrics_and_save(csv_file_path, output_folder=None, metrics=['Loss', 'Accuracy']):
     """

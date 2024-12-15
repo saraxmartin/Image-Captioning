@@ -6,21 +6,19 @@ from torch.optim.lr_scheduler import ExponentialLR
 import pandas as pd
 import os
 import csv
-
 import config
 from utils.dataset import FoodDataset
 from utils.train_test import initialize_storage, train_model, test_model
 from utils.model import CaptioningModel
 
 # GLOBAL VARIABLES
-IMAGES_DIR = r"C:\Users\Iván\Desktop\Challenge 3 Vision & Learning\Image-Captioning\data\images"
-CAPTIONS_DIR = r"C:\Users\Iván\Desktop\Challenge 3 Vision & Learning\Image-Captioning\data\info.csv"
+IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\images"
+CAPTIONS_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
 BATCH_SIZE = 16
 NUM_EPOCHS = 10
-EMBEDDING_DIM = 512
-HIDDEN_DIM = 512
-ATTENTION_DIM = 256
+EMBEDDING_DIM = 256
+HIDDEN_DIM = 256
 selected_config = config.configs[config.NUM_CONFIG]
 FC_LAYERS = selected_config["FC_LAYERS"]
 ACTIVATIONS = selected_config["ACTIVATIONS"]
@@ -68,20 +66,22 @@ gt = dataset.idx2word
 #print("NEW VOCAB SIZE", VOCAB_SIZE)
 # Train and validation loop
 for model_function, model_name in zip(name_models, names):
-    model = CaptioningModel(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE, ATTENTION_DIM)
+    model = CaptioningModel(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
     model = model.to(DEVICE)
     CRITERION = selected_config["CRITERION"]()  # Loss function
     OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"])
     SCHEDULER = ExponentialLR(OPTIMIZER, gamma=1)  # Reduce LR by 5% per epoch
     
     for epoch in range(NUM_EPOCHS):
-        current_lr = SCHEDULER.get_last_lr()[0]  # Get the current learning rate (assumes one LR group)
-        print(f"{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}, lr {current_lr}")
-        train_model(model, train_loader, dataset, OPTIMIZER, CRITERION, SCHEDULER, epoch)
+        #current_lr = SCHEDULER.get_last_lr()[0]  # Get the current learning rate (assumes one LR group)
+        #print(f"{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}, lr {current_lr}")
+        print(f"{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}")
+        train_model(model, train_loader, dataset, OPTIMIZER, CRITERION, SCHEDULER, epoch, VOCAB_SIZE)
+        #train_model1(train_loader, VOCAB_SIZE, dataset, CRITERION, epoch, DEVICE, type="train")
         test_model(model, val_loader, dataset, CRITERION, epoch, type="val")
 
 # Save trained model
-torch.save(model.state_dict(), f'utils/saved_models/{model.name}_config{config.NUM_CONFIG}.pth')
+#torch.save(model.state_dict(), f'utils/saved_models/{model.name}_config{config.NUM_CONFIG}.pth')
 
 # Test
 test_model(model, test_loader, dataset, CRITERION, epoch, type="test")
