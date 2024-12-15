@@ -13,8 +13,8 @@ from utils.train_test import initialize_storage, train_model, test_model
 from utils.model import CaptioningModel
 
 # GLOBAL VARIABLES
-IMAGES_DIR = "/export/fhome/vlia03/Image_Captioning/data/images"
-CAPTIONS_DIR = "/export/fhome/vlia03/Image_Captioning/data/info.csv"
+IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\images"
+CAPTIONS_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
 BATCH_SIZE = 16
 NUM_EPOCHS = 20
