@@ -290,7 +290,7 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
         current_caption = generate_valid_filename(last_captions[i])
         plot_attention(last_images[i], last_attention_weights[i],caption=current_caption,type=type)
 
-def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
+def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, type="test"):
     model.eval()
     total_loss = 0
     metrices = {'accuracy':0,
@@ -302,17 +302,24 @@ def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
     with torch.no_grad():
         for images, captions in test_loader:
             images, captions = images.to(DEVICE), captions.to(DEVICE)
+            tar = captions
+            true_captions = convert_captions(captions, dataset)
 
-            # Output
-            outputs, att_weight = model(images,captions)
+            # Forward pass
+            outputs, att_weights = model(images, captions)
+            outputs_new = outputs
+            #print("Outputs shape:", outputs.shape)
+            #print("Shape of outputs before reshape:", outputs.shape)
+            outputs = outputs.view(-1, VOCAB_SIZE)
+            target = tar.contiguous().view(-1)
+            #print("Outputs shape:", outputs.shape)
 
-            # Predictions
-            _, preds = torch.max(outputs,dim=2)
+            # Get predictions
+            _, preds = torch.max(outputs_new, dim=2)
+            #print("PREDS",preds)
 
             # Loss
-            outputs = outputs.reshape(-1, outputs.shape[-1])
-            captions_flat = captions.reshape(-1)
-            loss = criterion(outputs,captions_flat)
+            loss = criterion(outputs, target)
             total_loss += loss.item()
 
             # Get the predicted captions
@@ -321,17 +328,18 @@ def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
             # Metrices
             metrices = compute_metrices(predicted_texts,true_texts,metrices)
             last_images = images.detach().cpu()[-3:]
-            last_attention_weights = att_weight.detach().cpu()[-3:]
-            last_captions = true_texts[-3:]
+            last_attention_weights = att_weights.detach().cpu()[-3:]
+            last_captions = true_captions[-3:]
 
-            if att_weight is not None:
+            if att_weights  is not None:
                 for i in range(min(len(images), 3)):  # Show attention maps for up to 3 images
                     current_caption = generate_valid_filename(last_captions[i])
                     plot_attention(last_images[i], last_attention_weights[i],caption= current_caption,type='val')
 
 
     metrices = {key: value / len(test_loader) for key, value in metrices.items()}
-    write_results(model,epoch,type,total_loss,metrices)
+    loss = total_loss/ len(test_loader)
+    write_results(model,epoch,type,loss,metrices)
     write_captions_results(model,type,epoch,predicted_texts,true_texts)
 
     

@@ -78,10 +78,10 @@ for model_function, model_name in zip(name_models, names):
         print(f"{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}")
         train_model(model, train_loader, dataset, OPTIMIZER, CRITERION, SCHEDULER, epoch, VOCAB_SIZE)
         #train_model1(train_loader, VOCAB_SIZE, dataset, CRITERION, epoch, DEVICE, type="train")
-        test_model(model, val_loader, dataset, CRITERION, epoch, type="val")
+        test_model(model, val_loader, dataset, CRITERION, epoch, VOCAB_SIZE,type="val")
 
 # Save trained model
 #torch.save(model.state_dict(), f'utils/saved_models/{model.name}_config{config.NUM_CONFIG}.pth')
 
 # Test
-test_model(model, test_loader, dataset, CRITERION, epoch, type="test")
+test_model(model, test_loader, dataset, CRITERION, epoch, VOCAB_SIZE, type="test")
