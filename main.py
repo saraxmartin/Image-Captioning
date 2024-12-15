@@ -15,7 +15,7 @@ from utils.model import CaptioningModel_GRU
 IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\images"
 CAPTIONS_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
-BATCH_SIZE = 16
+BATCH_SIZE = 64
 NUM_EPOCHS = 10
 EMBEDDING_DIM = 256
 HIDDEN_DIM = 256
