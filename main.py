@@ -49,9 +49,9 @@ train_dataset, val_dataset, test_dataset = random_split(dataset, [0.8, 0.1, 0.1]
 #print(f"Number of images in test dataset: {len(test_dataset)}")
 
 # Create Dataloaders
-train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
-val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
+val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
 
 # Configure models
 name_models = [models.vgg16,models.densenet201, models.resnet50]
