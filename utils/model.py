@@ -23,37 +23,35 @@ class EncoderCNN(nn.Module):
             raise Exception("MODEL NOT SUPORTED")
         # Identify and replace the final layer of the base model
         if isinstance(self.base_model, models.DenseNet):
-            self.embed_size = embed_size
             in_features = self.base_model.classifier.in_features
             self.base_model.classifier = nn.Identity()  # Remove the final layer
             self.features = nn.Sequential(*list(self.base_model.features.children()))
-            #self.output_dim = in_features
-            #print(self.output_dim)
+            self.output_dim = in_features
+            print(self.output_dim)
         elif isinstance(self.base_model, models.ResNet):
-            self.embed_size = embed_size
             in_features = self.base_model.fc.in_features
             self.base_model.fc = nn.Identity()  # Remove the final layer
             self.features = nn.Sequential(*list(self.base_model.children())[:-2])
-
+            self.output_dim = in_features
+            print(self.output_dim)
         elif isinstance(self.base_model, models.VGG):
             # classifier[0] refers to the first fully connected layer after flattening the convolutional output
             # The input to this layer is 25088 features (flattened output from the last convolutional layer)
-            self.embed_size = embed_size
             in_features = self.base_model.classifier[0].in_features  # 512 for VGG16
             self.base_model.classifier = nn.Identity()  # Remove the final layer
             self.features = nn.Sequential(*list(self.base_model.features.children()))
-            #self.output_dim = 512  # VGG16 always outputs 512 channels
-            #print(self.output_dim)
+            self.output_dim = 512  # VGG16 always outputs 512 channels
+            print(self.output_dim)
         else:
             raise ValueError("Unsupported model")
         
         # For NO attention: Add additional layers
-        #self.embed = nn.Linear(self.output_dim, embed_size)  # Fully connected embedding layer
-        #self.dropout = nn.Dropout(p=0.5)  # Dropout for regularization
-        #self.prelu = nn.PReLU()  # Parametric ReLU activation function
-        #self.batch_norm = nn.BatchNorm1d(embed_size)  # Batch Normalization layer
+        self.embed = nn.Linear(self.output_dim, embed_size)  # Fully connected embedding layer
+        self.dropout = nn.Dropout(p=0.5)  # Dropout for regularization
+        self.prelu = nn.PReLU()  # Parametric ReLU activation function
+        self.batch_norm = nn.BatchNorm1d(embed_size)  # Batch Normalization layer
         
-        #self.embed_size = embed_size
+        self.embed_size = embed_size
 
 
     def forward(self, images, attention=True):
@@ -70,9 +68,7 @@ class EncoderCNN(nn.Module):
             # Flatten the tensor along height and width dimensions to be used in a fully connected
             features = features.view(features.size(0), -1, features.size(-1))
             #print("3.Features shape: ", features.shape)
-            embed_layer = nn.Linear(features.size(2), self.embed_size) # Linear embedding to get equal dim for all backbones
-            embed_layer = embed_layer.to(DEVICE)
-            features = embed_layer(features)
+            features = self.embed(features)
             #print("4.Features shape: ",features.shape)
             
             return features 
@@ -216,6 +212,9 @@ class GRUDecoder(nn.Module):
         
 
     def forward(self, captions, h0):
+        # Move inputs to device
+        captions = captions.to(DEVICE)
+        h0 = h0.to(DEVICE)
 
         # Embed captions
         embeddings = self.embedding(captions)  # (batch_size, seq_len, embedding_dim)
@@ -244,6 +243,10 @@ class LSTMDecoder(nn.Module):
         
 
     def forward(self, captions, h0, c0):
+        # Move inputs to device
+        captions = captions.to(DEVICE)
+        h0 = h0.to(DEVICE)
+        c0 = c0.to(DEVICE)
 
         # Embed captions
         embeddings = self.embedding(captions)  # (batch_size, seq_len, embedding_dim)
@@ -409,11 +412,11 @@ class CaptioningModel_LSTM(nn.Module):
     def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size):
         super(CaptioningModel_LSTM, self).__init__()
         self.name = model_name
-        self.encoder = EncoderCNN(base_model, model_name, embed_size)
+        self.encoder = EncoderCNN(base_model, model_name, embed_size).to(DEVICE)
         #print("ENCODER: ", self.encoder)
-        self.decoder = LSTMDecoder(hidden_size, vocab_size, embed_size) #with attention
+        self.decoder = LSTMDecoder(hidden_size, vocab_size, embed_size).to(DEVICE) #with attention
         #print("DECODER: ", self.decoder)
-        self.attention = Attention(embed_size,hidden_size,ATTENTION_BRANCHES=1)
+        self.attention = Attention(embed_size,hidden_size,ATTENTION_BRANCHES=1).to(DEVICE)
 
     def forward(self, images, captions):
         features = self.encoder(images)
