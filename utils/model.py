@@ -226,6 +226,35 @@ class GRUDecoder(nn.Module):
         outputs = self.fc(outputs)  # (batch_size, seq_len, vocab_size)
         
         return outputs
+
+class LSTMDecoder(nn.Module):
+    def __init__(self, hidden_dim, vocab_size, embedding_dim, num_layers=1):
+        super(LSTMDecoder, self).__init__()
+        
+        # Embedding layer for text input
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        
+        # LSTM Decoder
+        self.lstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, 
+                            num_layers=num_layers, batch_first=True)
+        
+        # Fully connected layer for generating word predictions
+        self.fc = nn.Linear(hidden_dim, vocab_size)
+        
+
+    def forward(self, captions, h0, c0):
+
+        # Embed captions
+        embeddings = self.embedding(captions)  # (batch_size, seq_len, embedding_dim)
+        
+        # Decode the embeddings
+        outputs, (hn, cn) = self.lstm(embeddings, (h0, c0))  # outputs: (batch_size, seq_len, hidden_dim)
+        
+        # Generate word probabilities
+        outputs = self.fc(outputs)  # (batch_size, seq_len, vocab_size)
+        
+        return outputs, (hn, cn)
+
     
 class DecoderLSTM_new(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, attention_size, teacher_forcing):
@@ -374,3 +403,24 @@ class CaptioningModel_GRU(nn.Module):
         outputs = self.decoder(captions, h0)
        
         return outputs, att_weights
+
+class CaptioningModel_LSTM(nn.Module):
+    def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size):
+        super(CaptioningModel_LSTM, self).__init__()
+        self.name = model_name
+        self.encoder = EncoderCNN(base_model, model_name, embed_size)
+        #print("ENCODER: ", self.encoder)
+        self.decoder = LSTMDecoder(hidden_size, vocab_size, embed_size) #with attention
+        #print("DECODER: ", self.decoder)
+        self.attention = Attention(embed_size,hidden_size,ATTENTION_BRANCHES=1)
+
+    def forward(self, images, captions):
+        features = self.encoder(images)
+        h0, att_weights = self.attention(features)
+        h0 = h0.permute(1, 0, 2)
+        batch_size, _, hidden_size = h0.size()
+        c0 = torch.zeros_like(h0)  # Initialize cell state as zeros
+        outputs, _ = self.decoder(captions, h0, c0)
+       
+        return outputs, att_weights
+

@@ -9,7 +9,7 @@ import csv
 import config
 from utils.dataset import FoodDataset
 from utils.train_test import initialize_storage, train_model, test_model
-from utils.model import CaptioningModel_GRU
+from utils.model import CaptioningModel_GRU, CaptioningModel_LSTM
 
 # GLOBAL VARIABLES
 IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\images"
@@ -68,9 +68,16 @@ gt = dataset.idx2word
 for model_function, model_name in zip(name_models, names):
     model_gru = CaptioningModel_GRU(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
     model_gru = model_gru.to(DEVICE)
+    model_lstm = CaptioningModel_LSTM(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
+    model_lstm = model_lstm.to(DEVICE)
     CRITERION = selected_config["CRITERION"]()  # Loss function
-    OPTIMIZER = selected_config["OPTIMIZER"](model_gru.parameters(), lr=selected_config["LEARNING_RATE"])
-    SCHEDULER = ExponentialLR(OPTIMIZER, gamma=1)  # Reduce LR by 5% per epoch
+    if a ==1:
+        OPTIMIZER = selected_config["OPTIMIZER"](model_gru.parameters(), lr=selected_config["LEARNING_RATE"])
+        SCHEDULER = ExponentialLR(OPTIMIZER, gamma=1)  # Reduce LR by 5% per epoch
+    else:
+        OPTIMIZER = selected_config["OPTIMIZER"](model_lstm.parameters(), lr=selected_config["LEARNING_RATE"])
+        SCHEDULER = ExponentialLR(OPTIMIZER, gamma=1)  # Reduce LR by 5% per epoch
+
     
     for epoch in range(NUM_EPOCHS):
         current_lr = SCHEDULER.get_last_lr()[0]  # Get the current learning rate (assumes one LR group)
