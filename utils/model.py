@@ -164,7 +164,7 @@ class DecoderLSTM(nn.Module):
                 if (captions[:, t] == eos_idx).all():
                     break"""
 
-            return outputs
+            return outputs, att_weights
 
 class AdditiveAttention(nn.Module):
     def __init__(self, hidden_size, attention_size):
@@ -251,7 +251,7 @@ class DecoderLSTM_new(nn.Module):
             teacher_force = torch.rand(1).item() < self.teacher_forcing_ratio
             inputs = captions[:, t] if teacher_force else output.argmax(dim=1)
 
-        return outputs
+        return outputs, att_weights
 
 
 class AoA_GatedAttention(nn.Module):
@@ -307,6 +307,6 @@ class CaptioningModel(nn.Module):
 
     def forward(self, images, captions):
         features = self.encoder(images)
-        outputs = self.decoder(features, captions)
+        outputs, attention_weights = self.decoder(features, captions)
         
-        return outputs
+        return outputs, attention_weights
