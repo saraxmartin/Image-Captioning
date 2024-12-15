@@ -3,7 +3,8 @@ import torch.nn as nn
 from torchvision import models
 import torch.nn.functional as F
 from torchvision.models import DenseNet201_Weights, ResNet50_Weights, VGG16_Weights
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from main import DEVICE
+
 
 class EncoderCNN(nn.Module):
     def __init__(self, base_model, model_name, embed_size):
@@ -70,7 +71,7 @@ class EncoderCNN(nn.Module):
             features = features.view(features.size(0), -1, features.size(-1))
             #print("3.Features shape: ", features.shape)
             embed_layer = nn.Linear(features.size(2), self.embed_size) # Linear embedding to get equal dim for all backbones
-            embed_layer = embed_layer.to(device)
+            embed_layer = embed_layer.to(DEVICE)
             features = embed_layer(features)
             #print("4.Features shape: ",features.shape)
             
@@ -274,19 +275,19 @@ class DecoderLSTM_new(nn.Module):
         #print(f"[DECODER] Encoder outputs device: {encoder_outputs.device}")
         #print(f"[DECODER] Captions device: {captions.device}")
         batch_size, max_len = captions.size(0), captions.size(1)
-        outputs = torch.zeros(batch_size, max_len, self.vocab_size).to(device)
+        outputs = torch.zeros(batch_size, max_len, self.vocab_size).to(DEVICE)
         #print(f"[DECODER] Outputs tensor initialized on device: {outputs.device}")
 
         # Initialize hidden and cell states for the LSTM
-        h, c = torch.zeros(1, batch_size, self.hidden_size).to(device), \
-               torch.zeros(1, batch_size, self.hidden_size).to(device)
+        h, c = torch.zeros(1, batch_size, self.hidden_size).to(DEVICE), \
+               torch.zeros(1, batch_size, self.hidden_size).to(DEVICE)
         #print(f"[DECODER] LSTM hidden state device: {h.device}, {c.device}")
 
         # Start decoding with the <SOS> token
         inputs = captions[:, 0]  # [batch_size]
 
         for t in range(1, max_len):
-            embedded_captions = self.embedding(inputs).unsqueeze(1).to(device)  # [batch_size, 1, embed_size]
+            embedded_captions = self.embedding(inputs).unsqueeze(1).to(DEVICE)  # [batch_size, 1, embed_size]
             #print(f"[DECODER] Embedded captions device (step {t}): {embedded_captions.device}")
             #print("0.Embedded captions:", embedded_captions.shape)
             context, att_weights = self.attention(encoder_outputs, h.squeeze(0))  # [batch_size, hidden_size]

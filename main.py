@@ -10,6 +10,7 @@ import config
 from utils.dataset import FoodDataset
 from utils.train_test import initialize_storage, train_model, test_model
 from utils.model import CaptioningModel_GRU, CaptioningModel_LSTM
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # GLOBAL VARIABLES
 IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\images"
@@ -23,7 +24,6 @@ selected_config = config.configs[config.NUM_CONFIG]
 FC_LAYERS = selected_config["FC_LAYERS"]
 ACTIVATIONS = selected_config["ACTIVATIONS"]
 BATCH_NORMS = selected_config["BATCH_NORMS"]
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 initialize_storage()

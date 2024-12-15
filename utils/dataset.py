@@ -13,7 +13,7 @@ import pandas as pd
 import math
 import numpy as np
 from collections import Counter
-
+from main import DEVICE
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="seaborn")
 
@@ -29,7 +29,6 @@ stop_words = set(stopwords.words("english"))
 #import logging
 #logging.getLogger("nltk").setLevel(logging.ERROR)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class FoodDataset(Dataset):
     def __init__(self, captions_df, images_dir, transform=None, type="char"):
@@ -145,8 +144,8 @@ class FoodDataset(Dataset):
             image = self.transform(image)
         else:
             image = transforms.ToTensor()(image)  #default image to Tensor conversion if no transform is applied
-        image = image.to(device)
-        caption_tensor = caption_tensor.to(device)
+        image = image.to(DEVICE)
+        caption_tensor = caption_tensor.to(DEVICE)
         return image, caption_tensor
 
 def format_recipe_name(input_string):

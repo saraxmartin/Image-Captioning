@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import sys
 from skimage.transform import resize
 import math
+from main import DEVICE
 # Add the parent directory to the Python path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.append(parent_dir)
@@ -20,8 +21,6 @@ meteor = evaluate.load('meteor')
 bleu = evaluate.load('bleu')
 rouge = evaluate.load('rouge')
 
-
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 RESULTS_CSV = "results/results.csv"
 
@@ -249,7 +248,7 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
         true_captions = convert_captions(captions, dataset)
 
         # Forward pass
-        outputs, att_weights = model(images, captions)
+        outputs, att_weights = model(images, captions).to(DEVICE)
         outputs_new = outputs
         #print("Outputs shape:", outputs.shape)
         #print("Shape of outputs before reshape:", outputs.shape)
