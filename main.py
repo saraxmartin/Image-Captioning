@@ -9,7 +9,7 @@ import csv
 import config
 from utils.dataset import FoodDataset
 from utils.train_test import initialize_storage, train_model, test_model
-from utils.model import CaptioningModel
+from utils.model import CaptioningModel_GRU
 
 # GLOBAL VARIABLES
 IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\images"
@@ -59,29 +59,34 @@ names = ["vgg16","densenet201","resnet50"]
 name_models = [models.resnet50]
 names = ["resnet50"]
 
-
+a = 1 # GRU MECHANISM
 VOCAB_SIZE = len(dataset.word2idx)
 print("VOCAB SIZE:", VOCAB_SIZE)
 gt = dataset.idx2word
 #print("NEW VOCAB SIZE", VOCAB_SIZE)
 # Train and validation loop
 for model_function, model_name in zip(name_models, names):
-    model = CaptioningModel(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
-    model = model.to(DEVICE)
+    model_gru = CaptioningModel_GRU(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
+    model_gru = model_gru.to(DEVICE)
     CRITERION = selected_config["CRITERION"]()  # Loss function
     OPTIMIZER = selected_config["OPTIMIZER"](model.parameters(), lr=selected_config["LEARNING_RATE"])
     SCHEDULER = ExponentialLR(OPTIMIZER, gamma=1)  # Reduce LR by 5% per epoch
     
     for epoch in range(NUM_EPOCHS):
-        #current_lr = SCHEDULER.get_last_lr()[0]  # Get the current learning rate (assumes one LR group)
-        #print(f"{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}, lr {current_lr}")
-        print(f"{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}")
-        train_model(model, train_loader, dataset, OPTIMIZER, CRITERION, SCHEDULER, epoch, VOCAB_SIZE)
-        #train_model1(train_loader, VOCAB_SIZE, dataset, CRITERION, epoch, DEVICE, type="train")
-        test_model(model, val_loader, dataset, CRITERION, epoch, VOCAB_SIZE,type="val")
+        current_lr = SCHEDULER.get_last_lr()[0]  # Get the current learning rate (assumes one LR group)
+        print(f"{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}, lr {current_lr}")
+        if a == 1:
+            train_model(model_gru, train_loader, dataset, OPTIMIZER, CRITERION, SCHEDULER, epoch, VOCAB_SIZE)
+            test_model(model_gru, val_loader, dataset, CRITERION, epoch, VOCAB_SIZE,type="val")
+        else:
+            train_model(model_lstm, train_loader, dataset, OPTIMIZER, CRITERION, SCHEDULER, epoch, VOCAB_SIZE)
+            test_model(model_lstm, val_loader, dataset, CRITERION, epoch, VOCAB_SIZE,type="val")
 
 # Save trained model
 #torch.save(model.state_dict(), f'utils/saved_models/{model.name}_config{config.NUM_CONFIG}.pth')
 
 # Test
-test_model(model, test_loader, dataset, CRITERION, epoch, VOCAB_SIZE, type="test")
+if a == 1:
+    test_model(model_gru, test_loader, dataset, CRITERION, epoch, VOCAB_SIZE, type="test")
+else:
+    test_model(model_lstm, test_loader, dataset, CRITERION, epoch, VOCAB_SIZE, type="test")

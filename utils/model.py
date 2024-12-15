@@ -357,9 +357,9 @@ class Attention(nn.Module):
         
         return Z, A
     
-class CaptioningModel(nn.Module):
+class CaptioningModel_GRU(nn.Module):
     def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size):
-        super(CaptioningModel, self).__init__()
+        super(CaptioningModel_GRU, self).__init__()
         self.name = model_name
         self.encoder = EncoderCNN(base_model, model_name, embed_size)
         #print("ENCODER: ", self.encoder)
