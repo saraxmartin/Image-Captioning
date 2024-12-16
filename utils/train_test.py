@@ -232,7 +232,7 @@ def plot_attention(image, attention_weights, grid_size=None, type="train", capti
         plt.savefig(save_path)
         plt.close()  # Close the figure to avoid display
 
-def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, epoch, VOCAB_SIZE, type="train"):
+def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, epoch, VOCAB_SIZE, leng, type="train"):
     model.train()
     total_loss = 0
     metrices = {'accuracy':0,
@@ -253,7 +253,7 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
 
         # Forward pass
         #outputs, att_weights = model(images, captions).to(device)
-        outputs, att_weights = model(images, captions)
+        outputs, att_weights = model(images, captions, leng, mode="train")
         outputs_new = outputs
         #print("Outputs shape:", outputs.shape)
         #print("Shape of outputs before reshape:", outputs.shape)
@@ -294,7 +294,7 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
         #current_caption = generate_valid_filename(last_captions[i])
         #plot_attention(last_images[i], last_attention_weights[i],caption=current_caption,type=type)
 
-def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, type="test"):
+def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, leng,type="test"):
     model.eval()
     total_loss = 0
     metrices = {'accuracy':0,
@@ -311,7 +311,7 @@ def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, type="
             true_captions = convert_captions(captions, dataset)
 
             # Forward pass
-            outputs, att_weights = model(images, captions)
+            outputs, att_weights = model(images, captions, leng, mode="test")
             outputs_new = outputs
             #print("Outputs shape:", outputs.shape)
             #print("Shape of outputs before reshape:", outputs.shape)

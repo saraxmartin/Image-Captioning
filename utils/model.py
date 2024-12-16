@@ -211,7 +211,22 @@ class GRUDecoder(nn.Module):
         
         # Fully connected layer for generating word predictions
         self.fc = nn.Linear(hidden_dim, vocab_size)
+    
+    def decode_step(self, input_word, hidden_state):
+        """
+        Decodes one step in the sequence and predicts the next word.
+        """
+        # Convert input_word to embedding (batch_size, 1, embed_size)
+        input_word_embedding = self.embedding(input_word).unsqueeze(1)
         
+        # Pass through the GRU to get the next hidden state
+        gru_out, hidden_state = self.gru(input_word_embedding, hidden_state)
+        
+        # Get logits for the next word
+        output = self.fc(gru_out.squeeze(1))  # Output shape: (batch_size, vocab_size)
+        
+        return output, hidden_state
+            
 
     def forward(self, captions, h0):
         device = get_device()
@@ -236,6 +251,7 @@ class LSTMDecoder(nn.Module):
         
         # Embedding layer for text input
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
+    
         
         # LSTM Decoder
         self.lstm = nn.LSTM(input_size=embedding_dim, hidden_size=hidden_dim, 
@@ -401,18 +417,52 @@ class CaptioningModel_GRU(nn.Module):
         device = get_device()
         self.name = model_name
         self.encoder = EncoderCNN(base_model, model_name, embed_size).to(device)
-        #print("ENCODER: ", self.encoder)
-        self.decoder = GRUDecoder(hidden_size, vocab_size, embed_size).to(device) #with attention
-        #print("DECODER: ", self.decoder)
-        self.attention = Attention(embed_size,hidden_size,ATTENTION_BRANCHES=1).to(device)
+        self.decoder = GRUDecoder(hidden_size, vocab_size, embed_size).to(device)  # with attention
+        self.attention = Attention(embed_size, hidden_size, ATTENTION_BRANCHES=1).to(device)
 
-    def forward(self, images, captions):
+    def forward(self, images, captions, max_seq_length, mode="train"):
         features = self.encoder(images)
         h0, att_weights = self.attention(features)
-        h0 = h0.permute(1,0,2)
-        outputs = self.decoder(captions, h0)
-       
+        h0 = h0.permute(1, 0, 2)  # Adjust for GRU input shape
+        
+        if mode == "train":
+            # Training mode with teacher forcing
+            outputs = self.decoder(captions, h0)
+        else:
+            # Evaluation mode with auto-regressive decoding
+            outputs = self.generate_captions(h0, max_seq_length)
+
         return outputs, att_weights
+
+
+    def generate_captions(self, h0, max_seq_length):
+        """
+        Generate captions one word at a time (auto-regressive decoding).
+        """
+        device = get_device()
+        batch_size = h0.size(0)
+        #vocab_size = self.decoder.vocab_size
+
+        # Initialize output tensor to store predicted captions
+        captions = torch.zeros((batch_size, max_seq_length), dtype=torch.long).to(device)
+        
+        # Start token (assuming <SOS> token index is 1)
+        input_word = torch.ones((batch_size, 1), dtype=torch.long).to(device)
+
+        hidden_state = h0
+        for t in range(max_seq_length):
+            # Decode one step
+            output, hidden_state = self.decoder.decode_step(input_word, hidden_state)
+
+            # Get the most likely word
+            _, predicted_word = torch.max(output, dim=2)
+            captions[:, t] = predicted_word.squeeze(1)
+
+            # Set current word as input for the next time step
+            input_word = predicted_word
+
+        return captions
+
 
 class CaptioningModel_LSTM(nn.Module):
     def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size):

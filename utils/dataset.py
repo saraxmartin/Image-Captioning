@@ -90,16 +90,17 @@ class FoodDataset(Dataset):
             self.images.append(full_path)
             self.captions.append(image_caption)
                        
-
+            words, leng = self.preprocess_captions(image_caption)
             # Calculate statistics from captions
-            self.data_properties['title_length'].append(len(self.preprocess_captions(image_caption)))
-            self.data_properties['lexicon'].update(self.preprocess_captions(image_caption))
-            self.all_words.extend(self.preprocess_captions(image_caption))
+            self.data_properties['title_length'].append(len(words))
+            self.data_properties['lexicon'].update(words)
+            self.all_words.extend(words)
 
             #i+=1
             #if i==5000:
             #    break
         # Convert the lexicon set to a list
+        self.leng = max(self.data_properties['title_length'], default=0)
         self.data_properties['lexicon'] = list(self.data_properties['lexicon'])
         self.build_vocab()
     
@@ -126,7 +127,8 @@ class FoodDataset(Dataset):
             words.append("<EOS>")
             n_padding = max(self.data_properties["title_length"]) + 2 - len(words)
             words = words + ["<PAD>" for _ in range(max(0, n_padding))]
-        return words
+        leng = len(words)
+        return words, leng
 
     def get_statistics(self, printed):
         plot_statistics(self.data_properties, printed)
@@ -135,7 +137,7 @@ class FoodDataset(Dataset):
     def __getitem__(self, idx):
         image_id = self.images[idx]
         caption = self.captions[idx]
-        caption = self.preprocess_captions(caption, pad=True)
+        caption,leng = self.preprocess_captions(caption, pad=True)
         caption_indices = [self.word2idx.get(word, self.word2idx["<UNK>"]) for word in caption] #if word not in the vocab then "UNK" 
         caption_tensor = torch.tensor(caption_indices, dtype=torch.long)
         #print("PREPROCESSED CAPTION: ", caption)

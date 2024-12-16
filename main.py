@@ -13,7 +13,7 @@ from utils.model import CaptioningModel_GRU, CaptioningModel_LSTM
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # GLOBAL VARIABLES
-IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\food_data\Food Images\images"
+IMAGES_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\images"
 CAPTIONS_DIR = r"C:\Users\larar\OneDrive\Documentos\Escritorio\Image-Captioning-2\data\info.csv"
 TRAIN_SIZE, TEST_SIZE, VAL_SIZE = 0.8, 0.1, 0.1
 BATCH_SIZE = 16
@@ -34,7 +34,9 @@ transform = transforms.Compose([transforms.Resize((256, 256)),
 
 # Import dataset
 info_df = pd.read_csv(CAPTIONS_DIR)
-dataset = FoodDataset(info_df, IMAGES_DIR, transform)
+dataset= FoodDataset(info_df, IMAGES_DIR, transform)
+leng = dataset.leng
+print(leng)
 VOCAB_SIZE = len(dataset.data_properties["lexicon"])
 #print("ORIGINAL VOCAB SIZE", VOCAB_SIZE)
 #statistics = dataset.get_statistics(printed=True)
@@ -85,8 +87,8 @@ for model_function, model_name in zip(name_models, names):
         current_lr = SCHEDULER.get_last_lr()[0]  # Get the current learning rate (assumes one LR group)
         print(f"{model_name}, EPOCH {epoch+1}/{NUM_EPOCHS}, lr {current_lr}")
         if a == 1:
-            train_model(model_gru, train_loader, dataset, OPTIMIZER, CRITERION, SCHEDULER, epoch, VOCAB_SIZE)
-            test_model(model_gru, val_loader, dataset, CRITERION, epoch, VOCAB_SIZE,type="val")
+            train_model(model_gru, train_loader, dataset, OPTIMIZER, CRITERION, SCHEDULER, epoch, VOCAB_SIZE, leng)
+            test_model(model_gru, val_loader, dataset, CRITERION, epoch, VOCAB_SIZE,leng, type="val")
         else:
             train_model(model_lstm, train_loader, dataset, OPTIMIZER, CRITERION, SCHEDULER, epoch, VOCAB_SIZE)
             test_model(model_lstm, val_loader, dataset, CRITERION, epoch, VOCAB_SIZE,type="val")
@@ -96,6 +98,6 @@ for model_function, model_name in zip(name_models, names):
 
 # Test
 if a == 1:
-    test_model(model_gru, test_loader, dataset, CRITERION, epoch, VOCAB_SIZE, type="test")
+    test_model(model_gru, test_loader, dataset, CRITERION, epoch, VOCAB_SIZE, leng, type="test")
 else:
     test_model(model_lstm, test_loader, dataset, CRITERION, epoch, VOCAB_SIZE, type="test")
