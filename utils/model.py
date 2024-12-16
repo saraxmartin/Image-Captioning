@@ -198,53 +198,6 @@ class AdditiveAttention(nn.Module):
 
         return context, attention_weights
 
-class GRUDecoder(nn.Module):
-    def __init__(self, hidden_dim, vocab_size, embedding_dim, num_layers=1):
-        super(GRUDecoder, self).__init__()
-        
-        # Embedding layer for text input
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        
-        # GRU Decoder
-        self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, 
-                          num_layers=num_layers, batch_first=True)
-        
-        # Fully connected layer for generating word predictions
-        self.fc = nn.Linear(hidden_dim, vocab_size)
-    
-    def decode_step(self, input_word, hidden_state):
-        """
-        Decodes one step in the sequence and predicts the next word.
-        """
-        # Convert input_word to embedding (batch_size, 1, embed_size)
-        input_word_embedding = self.embedding(input_word)
-        
-        # Pass through the GRU to get the next hidden state
-        gru_out, hidden_state = self.gru(input_word_embedding, hidden_state)
-        
-        # Get logits for the next word
-        output = self.fc(gru_out.squeeze(1))  # Output shape: (batch_size, vocab_size)
-        
-        return output, hidden_state
-            
-
-    def forward(self, captions, h0):
-        device = get_device()
-        # Move inputs to device
-        captions = captions.to(device)
-        h0 = h0.to(device)
-
-        # Embed captions
-        embeddings = self.embedding(captions)  # (batch_size, seq_len, embedding_dim)
-        
-        # Decode the embeddings
-        outputs, _ = self.gru(embeddings, h0)  # outputs: (batch_size, seq_len, hidden_dim)
-        
-        # Generate word probabilities
-        outputs = self.fc(outputs)  # (batch_size, seq_len, vocab_size)
-        
-        return outputs
-
 class LSTMDecoder(nn.Module):
     def __init__(self, hidden_dim, vocab_size, embedding_dim, num_layers=1):
         super(LSTMDecoder, self).__init__()
@@ -382,6 +335,54 @@ class AoA_GatedAttention(nn.Module):
         context = torch.sum(gated_attn_weights * features, dim=1) #[batch_size, 512]
         
         return context, gated_attn_weights
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, in_features, decom_space, attention_heads=1, dropout=0.1):
+        super(MultiHeadAttention, self).__init__()
+        
+        self.M = in_features  # Input dimension of the Values (NV vectors)
+        self.L = decom_space  # Dimension of Q(uery), K(eys) decomposition space
+        self.attention_heads = attention_heads
+        
+        # Define the linear transformations for Q (Query), K (Key), and V (Value)
+        self.query_linear = nn.Linear(self.M, self.L * self.attention_heads)
+        self.key_linear = nn.Linear(self.M, self.L * self.attention_heads)
+        self.value_linear = nn.Linear(self.M, self.L * self.attention_heads)
+        
+        # Output linear transformation
+        self.out_linear = nn.Linear(self.attention_heads * self.L, self.M)
+        
+        # Dropout for regularization
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        batch_size, seq_len, _ = x.size()
+
+        # Project input into Q, K, and V
+        Q = self.query_linear(x).view(batch_size, seq_len, self.attention_heads, self.L)
+        K = self.key_linear(x).view(batch_size, seq_len, self.attention_heads, self.L)
+        V = self.value_linear(x).view(batch_size, seq_len, self.attention_heads, self.L)
+        
+        # Transpose to get the shape for scaled dot-product attention (batch, heads, seq_len, depth)
+        Q = Q.permute(0, 2, 1, 3)
+        K = K.permute(0, 2, 3, 1)
+        V = V.permute(0, 2, 1, 3)
+
+        # Scaled Dot-Product Attention
+        attention_scores = torch.matmul(Q, K) / (self.L ** 0.5)  # Scaling by square root of L
+        attention_weights = F.softmax(attention_scores, dim=-1)
+        attention_weights = self.dropout(attention_weights)
+
+        # Context vector (Weighted sum of values V)
+        context = torch.matmul(attention_weights, V)
+
+        # Concatenate all heads and apply output linear transformation
+        context = context.permute(0, 2, 1, 3).contiguous().view(batch_size, seq_len, -1)
+        output = self.out_linear(context)
+        
+        return output, attention_weights
+
+
     
 class Attention(nn.Module):
     def __init__(self,in_features,decom_space,ATTENTION_BRANCHES=1):
@@ -410,6 +411,43 @@ class Attention(nn.Module):
         Z = torch.matmul(A, H)  # ATTENTION_BRANCHESxM 
         
         return Z, A
+
+class GRUDecoder(nn.Module):
+    def __init__(self, hidden_dim, vocab_size, embedding_dim, num_layers=1):
+        super(GRUDecoder, self).__init__()
+        # Embedding layer for text input
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        # GRU Decoder
+        self.gru = nn.GRU(input_size=embedding_dim, hidden_size=hidden_dim, 
+                          num_layers=num_layers, batch_first=True)
+        # Fully connected layer for generating word predictions
+        self.fc = nn.Linear(hidden_dim, vocab_size)
+    
+    def decode_step(self, input_word, hidden_state):
+        """
+        Decodes one step in the sequence and predicts the next word.
+        """
+        # Convert input_word to embedding (batch_size, 1, embed_size)
+        input_word_embedding = self.embedding(input_word)
+        # Pass through the GRU to get the next hidden state
+        gru_out, hidden_state = self.gru(input_word_embedding, hidden_state)
+        # Get logits for the next word
+        output = self.fc(gru_out.squeeze(1))  # Output shape: (batch_size, vocab_size)
+        return output, hidden_state
+            
+
+    def forward(self, captions, h0):
+        device = get_device()
+        # Move inputs to device
+        captions = captions.to(device)
+        h0 = h0.to(device)
+        # Embed captions
+        embeddings = self.embedding(captions)  # (batch_size, seq_len, embedding_dim)
+        # Decode the embeddings
+        outputs, _ = self.gru(embeddings, h0)  # outputs: (batch_size, seq_len, hidden_dim)
+        # Generate word probabilities
+        outputs = self.fc(outputs)  # (batch_size, seq_len, vocab_size)
+        return outputs
     
 class CaptioningModel_GRU(nn.Module):
     def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size, dataset):
@@ -419,8 +457,8 @@ class CaptioningModel_GRU(nn.Module):
         self.encoder = EncoderCNN(base_model, model_name, embed_size).to(device)
         self.decoder = GRUDecoder(hidden_size, vocab_size, embed_size).to(device)  # with attention
         self.attention = Attention(embed_size, hidden_size, ATTENTION_BRANCHES=1).to(device)
-        self.dataset = dataset
-        #self.attention = AoA_GatedAttention(hidden_size, 256).to(device)
+        #self.attention = MultiHeadAttention(embed_size, hidden_size, attention_heads=1, dropout=0.5).to(device)
+        self.dataset = dataset   
 
     def forward(self, images, captions, max_seq_length, mode="train"):
         device = get_device()
@@ -434,22 +472,17 @@ class CaptioningModel_GRU(nn.Module):
         if mode == "train":
             batch_size = captions.size(0)
             vocab_size = self.decoder.fc.out_features
-
             # Initialize outputs to store predictions for each time step
             outputs = torch.zeros(batch_size, max_seq_length, vocab_size).to(device)
-
             # Start token (<SOS>), assuming it's the first token in the vocabulary
             input_word = captions[:, 1].unsqueeze(1)  
-            #input_word = torch.ones(batch_size, 1, dtype=torch.long).to(device) 
-
+            input_word = torch.ones(batch_size, 1, dtype=torch.long).to(device) 
             hidden_state = h0
             for t in range(max_seq_length):
                 # Decode one step
                 output, hidden_state = self.decoder.decode_step(input_word, hidden_state)
-
                 # Store logits for this time step
                 outputs[:, t, :] = output
-
                 # Decide whether to use teacher forcing or model prediction
                 use_teacher_forcing = torch.rand(1).item() < teacher_forcing_ratio
                 if use_teacher_forcing:
@@ -457,7 +490,6 @@ class CaptioningModel_GRU(nn.Module):
                 else:
                     _, predicted_word = torch.max(output, dim=1)
                     input_word = predicted_word.unsqueeze(1)  # Use predicted word as next input
-
         else:
             # Evaluation mode with auto-regressive decoding
             outputs = self.generate_captions(h0, max_seq_length)
@@ -471,30 +503,22 @@ class CaptioningModel_GRU(nn.Module):
         """
         device = get_device()
         batch_size = h0.size(1)  # h0.shape: (num_layers, batch_size, hidden_dim)
-
         # Initialize output tensor to store predicted logits
         outputs = torch.zeros((batch_size, max_seq_length, self.decoder.fc.out_features)).to(device)
-
         # Start token (assuming <SOS> token index is 1)
         input_word = torch.ones((batch_size, 1), dtype=torch.long).to(device)
         #print(self.dataset.idx2word[input_word.item()])
-
         hidden_state = h0
         for t in range(max_seq_length):
             # Decode one step
             output, hidden_state = self.decoder.decode_step(input_word, hidden_state)
-
             # Store logits for this time step
             outputs[:, t, :] = output
-
             # Get the most likely word for the next step
             _, predicted_word = torch.max(output, dim=1)
             input_word = predicted_word.unsqueeze(1)
         print("SHAPE", outputs.shape)
-
         return outputs  # Return logits (batch_size, max_seq_length, vocab_size)
-
-
 
 
 class CaptioningModel_LSTM(nn.Module):
@@ -515,6 +539,5 @@ class CaptioningModel_LSTM(nn.Module):
         batch_size, _, hidden_size = h0.size()
         c0 = torch.zeros_like(h0)  # Initialize cell state as zeros
         outputs, _ = self.decoder(captions, h0, c0)
-       
         return outputs, att_weights
 
