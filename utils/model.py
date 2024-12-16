@@ -217,7 +217,7 @@ class GRUDecoder(nn.Module):
         Decodes one step in the sequence and predicts the next word.
         """
         # Convert input_word to embedding (batch_size, 1, embed_size)
-        input_word_embedding = self.embedding(input_word).unsqueeze(1)
+        input_word_embedding = self.embedding(input_word)
         
         # Pass through the GRU to get the next hidden state
         gru_out, hidden_state = self.gru(input_word_embedding, hidden_state)
@@ -412,22 +412,52 @@ class Attention(nn.Module):
         return Z, A
     
 class CaptioningModel_GRU(nn.Module):
-    def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size):
+    def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size, dataset):
         super(CaptioningModel_GRU, self).__init__()
         device = get_device()
         self.name = model_name
         self.encoder = EncoderCNN(base_model, model_name, embed_size).to(device)
         self.decoder = GRUDecoder(hidden_size, vocab_size, embed_size).to(device)  # with attention
         self.attention = Attention(embed_size, hidden_size, ATTENTION_BRANCHES=1).to(device)
+        self.dataset = dataset
+        #self.attention = AoA_GatedAttention(hidden_size, 256).to(device)
 
     def forward(self, images, captions, max_seq_length, mode="train"):
+        device = get_device()
         features = self.encoder(images)
         h0, att_weights = self.attention(features)
         h0 = h0.permute(1, 0, 2)  # Adjust for GRU input shape
-        
-        if mode == "train":
+        teacher_forcing_ratio = 0
+        #if mode == "train":
             # Training mode with teacher forcing
-            outputs = self.decoder(captions, h0)
+            #outputs = self.decoder(captions, h0)
+        if mode == "train":
+            batch_size = captions.size(0)
+            vocab_size = self.decoder.fc.out_features
+
+            # Initialize outputs to store predictions for each time step
+            outputs = torch.zeros(batch_size, max_seq_length, vocab_size).to(device)
+
+            # Start token (<SOS>), assuming it's the first token in the vocabulary
+            input_word = captions[:, 1].unsqueeze(1)  
+            #input_word = torch.ones(batch_size, 1, dtype=torch.long).to(device) 
+
+            hidden_state = h0
+            for t in range(max_seq_length):
+                # Decode one step
+                output, hidden_state = self.decoder.decode_step(input_word, hidden_state)
+
+                # Store logits for this time step
+                outputs[:, t, :] = output
+
+                # Decide whether to use teacher forcing or model prediction
+                use_teacher_forcing = torch.rand(1).item() < teacher_forcing_ratio
+                if use_teacher_forcing:
+                    input_word = captions[:, t].unsqueeze(1)  # Use ground truth word
+                else:
+                    _, predicted_word = torch.max(output, dim=1)
+                    input_word = predicted_word.unsqueeze(1)  # Use predicted word as next input
+
         else:
             # Evaluation mode with auto-regressive decoding
             outputs = self.generate_captions(h0, max_seq_length)
@@ -440,28 +470,31 @@ class CaptioningModel_GRU(nn.Module):
         Generate captions one word at a time (auto-regressive decoding).
         """
         device = get_device()
-        batch_size = h0.size(0)
-        #vocab_size = self.decoder.vocab_size
+        batch_size = h0.size(1)  # h0.shape: (num_layers, batch_size, hidden_dim)
 
-        # Initialize output tensor to store predicted captions
-        captions = torch.zeros((batch_size, max_seq_length), dtype=torch.long).to(device)
-        
+        # Initialize output tensor to store predicted logits
+        outputs = torch.zeros((batch_size, max_seq_length, self.decoder.fc.out_features)).to(device)
+
         # Start token (assuming <SOS> token index is 1)
         input_word = torch.ones((batch_size, 1), dtype=torch.long).to(device)
+        #print(self.dataset.idx2word[input_word.item()])
 
         hidden_state = h0
         for t in range(max_seq_length):
             # Decode one step
             output, hidden_state = self.decoder.decode_step(input_word, hidden_state)
 
-            # Get the most likely word
-            _, predicted_word = torch.max(output, dim=2)
-            captions[:, t] = predicted_word.squeeze(1)
+            # Store logits for this time step
+            outputs[:, t, :] = output
 
-            # Set current word as input for the next time step
-            input_word = predicted_word
+            # Get the most likely word for the next step
+            _, predicted_word = torch.max(output, dim=1)
+            input_word = predicted_word.unsqueeze(1)
+        print("SHAPE", outputs.shape)
 
-        return captions
+        return outputs  # Return logits (batch_size, max_seq_length, vocab_size)
+
+
 
 
 class CaptioningModel_LSTM(nn.Module):

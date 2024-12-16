@@ -308,11 +308,13 @@ def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, leng,t
             device = get_device()
             images, captions = images.to(device), captions.to(device)
             tar = captions
+            print(f"Target shape after view: {tar.shape}")    # Debería ser (batch_size * seq_len)
             true_captions = convert_captions(captions, dataset)
-
+            print(leng)
             # Forward pass
             outputs, att_weights = model(images, captions, leng, mode="test")
             outputs_new = outputs
+            print(f"Shape of outputs before view: {outputs.shape}")
             #print("Outputs shape:", outputs.shape)
             #print("Shape of outputs before reshape:", outputs.shape)
             outputs = outputs.view(-1, VOCAB_SIZE)

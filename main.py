@@ -35,7 +35,7 @@ transform = transforms.Compose([transforms.Resize((256, 256)),
 # Import dataset
 info_df = pd.read_csv(CAPTIONS_DIR)
 dataset= FoodDataset(info_df, IMAGES_DIR, transform)
-leng = dataset.leng
+leng = dataset.leng + 2
 print(leng)
 VOCAB_SIZE = len(dataset.data_properties["lexicon"])
 #print("ORIGINAL VOCAB SIZE", VOCAB_SIZE)
@@ -69,7 +69,7 @@ gt = dataset.idx2word
 # Train and validation loop
 for model_function, model_name in zip(name_models, names):
     if a == 1:
-        model_gru = CaptioningModel_GRU(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
+        model_gru = CaptioningModel_GRU(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE, dataset)
         model_gru = model_gru.to(DEVICE)
     else:
         model_lstm = CaptioningModel_LSTM(model_function, model_name, EMBEDDING_DIM, HIDDEN_DIM, VOCAB_SIZE)
