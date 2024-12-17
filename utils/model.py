@@ -3,6 +3,8 @@ import torch.nn as nn
 from torchvision import models
 import torch.nn.functional as F
 from torchvision.models import DenseNet201_Weights, ResNet50_Weights, VGG16_Weights
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 def get_device():
     from main import DEVICE  # Move the import here, inside the function
     return DEVICE
@@ -96,6 +98,7 @@ class Attention(nn.Module):
         self.M = in_features  # Input dimension for combined input
         self.L = decom_space  # Dimension of attention space
         self.ATTENTION_BRANCHES = ATTENTION_BRANCHES
+        self.dropout = nn.Dropout(dropout)
 
         # Linear layers for projecting input into query-key space
         self.attention = nn.Sequential(
@@ -121,12 +124,13 @@ class Attention(nn.Module):
 
 
 class GRUDecoder(nn.Module):
-    def __init__(self, hidden_dim, vocab_size, embedding_dim, num_layers=1):
+    def __init__(self, hidden_dim, vocab_size, embedding_dim, num_layers=1, dropout = 0.5):
         super(GRUDecoder, self).__init__()
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.gru = nn.GRU(input_size=embedding_dim + hidden_dim, 
                           hidden_size=hidden_dim, num_layers=num_layers, batch_first=True)
         self.fc = nn.Linear(hidden_dim, vocab_size)
+        self.dropout = nn.Dropout(dropout)
     
     def decode_step(self, input_word, hidden_state, context_vector):
         """
