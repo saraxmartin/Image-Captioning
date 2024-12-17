@@ -8,7 +8,7 @@ configs = {
         {
         "LEARNING_RATE": 0.0005,
         "CRITERION": nn.CrossEntropyLoss,  
-        "OPTIMIZER": optim.Adam, 
+        "OPTIMIZER": optim.AdamW, 
         "FC_LAYERS": [512, 256, 128],
         "ACTIVATIONS": ["ReLU", "ReLU", "ReLU"],
         "BATCH_NORMS": [True, True, False]

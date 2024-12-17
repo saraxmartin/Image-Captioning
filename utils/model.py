@@ -3,6 +3,8 @@ import torch.nn as nn
 from torchvision import models
 import torch.nn.functional as F
 from torchvision.models import DenseNet201_Weights, ResNet50_Weights, VGG16_Weights
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 def get_device():
     from main import DEVICE  # Move the import here, inside the function
     return DEVICE
@@ -336,6 +338,29 @@ class AoA_GatedAttention(nn.Module):
         
         return context, gated_attn_weights
 
+class DotProductAttention(nn.Module):
+    def __init__(self, dropout=0.5):
+        super(DotProductAttention, self).__init__()
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, query, key, value):
+        """
+        query: Tensor of shape (batch_size, 1, hidden_dim)  -> Decoder GRU hidden state
+        key:   Tensor of shape (batch_size, seq_len, hidden_dim) -> Encoder outputs (features)
+        value: Tensor of shape (batch_size, seq_len, hidden_dim) -> Same as key (in standard attention)
+        """
+        # Step 1: Compute dot product attention scores
+        scores = torch.bmm(query, key.transpose(1, 2))  # (batch_size, 1, seq_len)
+        
+        # Step 2: Normalize scores using softmax
+        attn_weights = F.softmax(scores, dim=-1)  # (batch_size, 1, seq_len)
+        attn_weights = self.dropout(attn_weights)  # Apply dropout for regularization
+
+        # Step 3: Compute weighted sum of values (context vector)
+        context = torch.bmm(attn_weights, value)  # (batch_size, 1, hidden_dim)
+
+        return context, attn_weights
+
 class MultiHeadAttention(nn.Module):
     def __init__(self, in_features, decom_space, attention_heads=1, dropout=0.1):
         super(MultiHeadAttention, self).__init__()
@@ -385,11 +410,12 @@ class MultiHeadAttention(nn.Module):
 
     
 class Attention(nn.Module):
-    def __init__(self,in_features,decom_space,ATTENTION_BRANCHES=1):
+    def __init__(self,in_features,decom_space,ATTENTION_BRANCHES=1, dropout = 0.5):
         super(Attention, self).__init__()
         self.M = in_features #Input dimension of the Values NV vectors 
         self.L = decom_space # Dimension of Q(uery),K(eys) decomposition space
         self.ATTENTION_BRANCHES = ATTENTION_BRANCHES
+        self.dropout = nn.Dropout(dropout)
 
 
         self.attention = nn.Sequential(
@@ -406,6 +432,8 @@ class Attention(nn.Module):
         A = self.attention(H)  # NVxATTENTION_BRANCHES
         A = A.permute(0,2,1)  # ATTENTION_BRANCHESxNV
         A = F.softmax(A, dim=1)  # softmax over NV
+
+        A = self.dropout(A)
         
         # Context Vector (Attention Aggregation)
         Z = torch.matmul(A, H)  # ATTENTION_BRANCHESxM 
@@ -413,7 +441,7 @@ class Attention(nn.Module):
         return Z, A
 
 class GRUDecoder(nn.Module):
-    def __init__(self, hidden_dim, vocab_size, embedding_dim, num_layers=1):
+    def __init__(self, hidden_dim, vocab_size, embedding_dim, num_layers=1, dropout = 0.5):
         super(GRUDecoder, self).__init__()
         # Embedding layer for text input
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
@@ -422,6 +450,7 @@ class GRUDecoder(nn.Module):
                           num_layers=num_layers, batch_first=True)
         # Fully connected layer for generating word predictions
         self.fc = nn.Linear(hidden_dim, vocab_size)
+        self.dropout = nn.Dropout(dropout)
     
     def decode_step(self, input_word, hidden_state):
         """
@@ -445,6 +474,7 @@ class GRUDecoder(nn.Module):
         embeddings = self.embedding(captions)  # (batch_size, seq_len, embedding_dim)
         # Decode the embeddings
         outputs, _ = self.gru(embeddings, h0)  # outputs: (batch_size, seq_len, hidden_dim)
+        outputs = self.dropout(outputs)
         # Generate word probabilities
         outputs = self.fc(outputs)  # (batch_size, seq_len, vocab_size)
         return outputs
@@ -455,8 +485,10 @@ class CaptioningModel_GRU(nn.Module):
         device = get_device()
         self.name = model_name
         self.encoder = EncoderCNN(base_model, model_name, embed_size).to(device)
-        self.decoder = GRUDecoder(hidden_size, vocab_size, embed_size).to(device)  # with attention
+        self.decoder = GRUDecoder(hidden_size, vocab_size, embed_size, dropout = 0.5).to(device)  # with attention
         self.attention = Attention(embed_size, hidden_size, ATTENTION_BRANCHES=1).to(device)
+        #self.attention = DotProductAttention().to(device)
+
         #self.attention = MultiHeadAttention(embed_size, hidden_size, attention_heads=1, dropout=0.5).to(device)
         self.dataset = dataset   
 
