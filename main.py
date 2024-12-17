@@ -9,7 +9,7 @@ import csv
 import config
 from utils.dataset import FoodDataset
 from utils.train_test import initialize_storage, train_model, test_model
-from utils.model import CaptioningModel_GRU, CaptioningModel_LSTM
+from utils.model import CaptioningModel_GRU #, CaptioningModel_LSTM
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # GLOBAL VARIABLES
