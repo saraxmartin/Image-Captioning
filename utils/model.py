@@ -93,7 +93,7 @@ class EncoderCNN(nn.Module):
             return embeddings
 
 class Attention(nn.Module):
-    def __init__(self, in_features, decom_space, ATTENTION_BRANCHES=1):
+    def __init__(self, in_features, decom_space, ATTENTION_BRANCHES=1, dropout = 0.5):
         super(Attention, self).__init__()
         self.M = in_features  # Input dimension for combined input
         self.L = decom_space  # Dimension of attention space
@@ -115,6 +115,7 @@ class Attention(nn.Module):
         """
         # Combine image features and words
         combined = torch.cat((features, words), dim=1)  # Concatenate along sequence dimension
+        
         A = self.attention(combined)  # Attention weights
         A = F.softmax(A, dim=1)  # Apply softmax over sequence dimension
 
@@ -163,7 +164,9 @@ class CaptioningModel_GRU(nn.Module):
     def forward(self, images, captions, max_seq_length, mode="train"):
         device = get_device()
         features = self.encoder(images)  # Extract image features
-        h0, att_weights = self.attention(features)  # Initial hidden state from attention
+        words = self.decoder.embedding(captions)
+        
+        h0, att_weights = self.attention(features,words)  # Initial hidden state from attention
         h0 = h0.permute(1, 0, 2)  # Adjust shape for GRU: (num_layers, batch_size, hidden_dim)
         
         batch_size = captions.size(0)
@@ -178,7 +181,8 @@ class CaptioningModel_GRU(nn.Module):
 
         for t in range(1, max_seq_length):  # Start from 1 since 0 is <SOS>
             # Decode one step
-            output, hidden_state = self.decoder.decode_step(input_word, hidden_state)
+            context_vector = h0.squeeze(0).unsqueeze(1)
+            output, hidden_state = self.decoder.decode_step(input_word, hidden_state,context_vector)
             
             # Store logits for this time step
             outputs[:, t, :] = output

@@ -5,9 +5,14 @@ import evaluate
 import torch.nn as nn
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from PIL import Image
 import sys
 from skimage.transform import resize
 import math
+import torchvision
+import time
+
 # Add the parent directory to the Python path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.append(parent_dir)
@@ -45,6 +50,131 @@ def initialize_storage():
     with open(captions_csv, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(header2)
+
+def plot_metrics_and_save(csv_file_path, output_folder=None, metrics=['Loss', 'Accuracy']):
+    """
+    Plots the specified metrics for train and test sets for different models and saves the plots as images.
+
+    Parameters:
+    - csv_file_path (str): Full path to the CSV file.
+    - output_folder (str): Path to the folder where images will be saved (default is the same directory as the CSV file).
+    - metrics (list): List of metrics to plot (default is ['Loss', 'Accuracy']).
+    """
+    #load the data
+    data = pd.read_csv(csv_file_path)
+
+    #ensure the 'Type' column is treated as categorical, not numerical
+    data['Type'] = data['Type'].astype('category')
+
+    #if no output folder is specified, use the directory of the CSV file
+    if output_folder is None:
+        output_folder = os.path.dirname(csv_file_path)
+
+    #make sure output folder exists
+    os.makedirs(output_folder, exist_ok=True)
+
+    #loop through each metric
+    for metric in metrics:
+        plt.figure(figsize=(12, 6))
+        for model in data['Model'].unique():
+            for data_type in data['Type'].cat.categories:
+                subset = data[(data['Model'] == model) & (data['Type'] == data_type)]
+                if not subset.empty:
+                    plt.plot(subset['Epoch'], subset[metric], label=f'{model} - {data_type}')
+
+        plt.title(f'{metric} vs Epoch')
+        plt.xlabel('Epoch')
+        plt.ylabel(metric)
+        plt.legend()
+        plt.grid()
+
+        #save the plot
+        sanitized_metric = metric.replace(' ', '_').lower()
+        file_name = f"{sanitized_metric}_plot.png"
+        save_path = os.path.join(output_folder, file_name)
+        plt.savefig(save_path)
+        print(f"Saved plot to {save_path}")
+        plt.close()  # Close the plot to free memory
+
+
+def visualize_image_with_captions(image_path, ground_truth, predicted, save_dir=None, mode='train'):
+    """
+    Display an image with the ground truth and predicted captions and save the plot.
+
+    Args:
+        image_path (str): Path to the image file.
+        ground_truth (str): Ground truth caption.
+        predicted (str): Predicted caption.
+        save_dir (str, optional): Directory to save the plot. Defaults to 'results/captions_plots/'.
+        mode (str): Mode to determine where to save the plots ('train' or others).
+    """
+    # Resolve the directory for saving the plot
+    if save_dir is None:
+        # Resolve save_dir relative to the location of the current script (main.py)
+        save_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../results/captions_plots")
+    
+    # Set subdirectory based on mode
+    if mode == 'train':
+        subfolder = "Train_caption"
+    else:
+        print(mode)
+        subfolder = "Val_Test_Captions"
+    
+    save_dir = os.path.join(save_dir, subfolder)
+
+    # Create the save directory if it does not exist
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Extract the image filename to use for saving the plot
+    image_filename = os.path.basename(image_path)
+    
+    #add a unique identifier to prevent overwriting, i will use timestamp
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    plot_save_path = os.path.join(save_dir, f"{os.path.splitext(image_filename)[0]}_caption_plot_{timestamp}.png")
+
+    # Load the image
+    try:
+        img = Image.open(image_path)
+    except Exception as e:
+        print(f"Error loading image: {e}")
+        return
+
+    # Set up the figure with a larger size
+    fig = plt.figure(figsize=(12, 9))  # Increase the size of the image
+
+    # Use GridSpec to arrange the image and captions
+    gs = gridspec.GridSpec(1, 2, width_ratios=[3, 2])  # Adjust grid proportions
+
+    # Display the image
+    ax_img = plt.subplot(gs[0])
+    ax_img.imshow(img)
+    ax_img.axis("off")  # Hide axes
+
+    # Display captions
+    ax_text = plt.subplot(gs[1])
+    ax_text.axis("off")  # Hide axes
+    ax_text.text(0, 0.8, "Ground Truth:", fontsize=14, weight='bold', color='green')
+    ax_text.text(0.1, 0.6, ground_truth, fontsize=12, wrap=True)
+    ax_text.text(0, 0.4, "Predicted:", fontsize=14, weight='bold', color='blue')
+    ax_text.text(0.1, 0.2, predicted, fontsize=12, wrap=True)
+
+    # Set overall title
+    plt.suptitle("Image Captioning Comparison", fontsize=18, weight='bold')
+    plt.tight_layout()
+
+    # Print save path for debugging
+    print(f"Saving plot to: {plot_save_path}")
+
+    # Save the plot
+    try:
+        plt.savefig(plot_save_path, bbox_inches='tight')  # You can remove bbox_inches='tight' if it's causing issues
+        print(f"Plot saved to {plot_save_path}")
+    except Exception as e:
+        print(f"Error saving plot: {e}")
+
+    plt.close(fig)  # Close the figure to free up memory
+
+
 
 def write_results(model,epoch,type,loss,metrices):
      with open(RESULTS_CSV, mode='a', newline='') as file:
@@ -240,8 +370,10 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
                 'bleu2':0,
                 'rouge':0,
                 'meteor':0}
-
+    i = 0
+    visualization_frequency = 10
     for images, captions in train_loader:
+        i+=1
         #print("IMAGES:", images)
         #print("CAPTIONS:", captions)
         device = get_device()
@@ -279,6 +411,24 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
 
         # Metrices
         metrices = compute_metrices(predicted_texts,true_texts,metrices)
+
+        # Visualization: Every 10% of total iterations (or every N steps)
+        if i % visualization_frequency == 0:
+            # Select the first image and its corresponding captions for simplicity
+            first_image = images.detach().cpu()[0]
+            first_ground_truth = true_texts[0]
+            first_predicted_text = predicted_texts[0]
+
+            # Save the first image temporarily
+            save_image_path = f"temp_image_{i}.png"  # Temporary save path for the image
+            torchvision.utils.save_image(first_image, save_image_path)
+
+            #call the visualization function
+            visualize_image_with_captions(
+                save_image_path,
+                ground_truth=first_ground_truth,
+                predicted=first_predicted_text
+            )
         last_images = images.detach().cpu()[-3:]
         last_attention_weights = att_weights.detach().cpu()[-3:]
         last_captions = true_captions[-3:]
@@ -302,9 +452,11 @@ def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, leng,t
                 'bleu2':0,
                 'rouge':0,
                 'meteor':0}
-    
+    i = 0
+    visualization_frequency = 10
     with torch.no_grad():
         for images, captions in test_loader:
+            i+=1
             device = get_device()
             images, captions = images.to(device), captions.to(device)
             tar = captions
@@ -334,6 +486,25 @@ def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, leng,t
 
             # Metrices
             metrices = compute_metrices(predicted_texts,true_texts,metrices)
+
+            if i % visualization_frequency == 0:
+            # Select the first image and its corresponding captions for simplicity
+                first_image = images.detach().cpu()[0]
+                first_ground_truth = true_texts[0]
+                first_predicted_text = predicted_texts[0]
+
+                # Save the first image temporarily
+                save_image_path = f"temp_image_{i}.png"  # Temporary save path for the image
+                torchvision.utils.save_image(first_image, save_image_path)
+
+                #call the visualization function
+                visualize_image_with_captions(
+                    save_image_path,
+                    ground_truth=first_ground_truth,
+                    predicted=first_predicted_text,
+                    mode = 'test'
+            )
+
             last_images = images.detach().cpu()[-3:]
             last_attention_weights = att_weights.detach().cpu()[-3:]
             last_captions = true_captions[-3:]
@@ -350,50 +521,3 @@ def test_model(model, test_loader, dataset, criterion, epoch, VOCAB_SIZE, leng,t
     write_captions_results(model,type,epoch,predicted_texts,true_texts)
 
     
-def plot_metrics_and_save(csv_file_path, output_folder=None, metrics=['Loss', 'Accuracy']):
-    """
-    Plots the specified metrics for train and test sets for different models and saves the plots as images.
-
-    Parameters:
-    - csv_file_path (str): Full path to the CSV file.
-    - output_folder (str): Path to the folder where images will be saved (default is the same directory as the CSV file).
-    - metrics (list): List of metrics to plot (default is ['Loss', 'Accuracy']).
-    """
-    #load the data
-    data = pd.read_csv(csv_file_path)
-
-    #ensure the 'Type' column is treated as categorical, not numerical
-    data['Type'] = data['Type'].astype('category')
-
-    #if no output folder is specified, use the directory of the CSV file
-    if output_folder is None:
-        output_folder = os.path.dirname(csv_file_path)
-
-    #make sure output folder exists
-    os.makedirs(output_folder, exist_ok=True)
-
-    #loop through each metric
-    for metric in metrics:
-        plt.figure(figsize=(12, 6))
-        for model in data['Model'].unique():
-            for data_type in data['Type'].cat.categories:
-                subset = data[(data['Model'] == model) & (data['Type'] == data_type)]
-                if not subset.empty:
-                    plt.plot(subset['Epoch'], subset[metric], label=f'{model} - {data_type}')
-
-        plt.title(f'{metric} vs Epoch')
-        plt.xlabel('Epoch')
-        plt.ylabel(metric)
-        plt.legend()
-        plt.grid()
-
-        #save the plot
-        sanitized_metric = metric.replace(' ', '_').lower()
-        file_name = f"{sanitized_metric}_plot.png"
-        save_path = os.path.join(output_folder, file_name)
-        plt.savefig(save_path)
-        print(f"Saved plot to {save_path}")
-        plt.close()  # Close the plot to free memory
-
-
-
