@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 from torchvision import models
 from torchvision.models import DenseNet201_Weights, ResNet50_Weights, VGG16_Weights
+import torch.nn.functional as F
+
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class EncoderCNN(nn.Module):
     def __init__(self, base_model, model_name, embed_size):
@@ -42,179 +45,95 @@ class EncoderCNN(nn.Module):
         else:
             raise ValueError("Unsupported model")
         
-        # For NO attention: Add additional layers
-        self.embed = nn.Linear(self.output_dim, embed_size)  # Fully connected embedding layer
-        self.dropout = nn.Dropout(p=0.5)  # Dropout for regularization
-        self.prelu = nn.PReLU()  # Parametric ReLU activation function
-        self.batch_norm = nn.BatchNorm1d(embed_size)  # Batch Normalization layer
-        
-        self.embed_size = embed_size
-
+        self.embed = nn.Linear(self.output_dim, embed_size).to(DEVICE)  # Fully connected embedding layer
 
     def forward(self, images, attention=True):
         #print("\nENCODER:")
+        images = images.to(DEVICE)
+        # Pass images through sequential model.
+        #print("0.Images shape: ",images.shape) # Input feature map [batch_size, num_channels(3), height(256), width(256)]
+        features = self.features(images).to(DEVICE) #Output feature map [batch_size, num_channels(512), height(16), width(16)]
+        #print("1.Features shape: ", features.shape)
+        # Permute the tensor dimensions to [batch_size, height, width, channels]
+        features = features.permute(0, 2, 3, 1)
+        #print("2.Features shape: ", features.shape)  
+        # Flatten the tensor along height and width dimensions to be used in a fully connected
+        features = features.view(features.size(0), -1, features.size(-1))
+        #print("3.Features shape: ", features.shape)
+        features = self.embed(features)
+        #print("4.Features shape: ",features.shape)
+            
+        return features 
+        
+class FirstDecoderLSTM(nn.Module):
+    def __init__(self, embed_size, hidden_size, vocab_size, attention_size, num_layers=1):
+        super(FirstDecoderLSTM, self).__init__()
+        # Word embedding layer: converts words into vectors of fixed size (embed_size)
+        self.embedding = nn.Embedding(vocab_size, embed_size).to(DEVICE)
+        # LSTM layer
+        #self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size, batch_first=True,
+        #                    num_layers=num_layers, dropout=0.5 if num_layers > 1 else 0).to(DEVICE)
+        self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True,
+                            num_layers=num_layers, dropout=0.5 if num_layers > 1 else 0).to(DEVICE)
+        # Attention layer
+        #self.attention = AoA_GatedAttention(hidden_size, attention_size).to(DEVICE)
+        self.attention = FirstAdditiveAttention(hidden_size, attention_size).to(DEVICE)
+        # Linear layer: maps output of LSTM into the size of the vocabulary
+        # Gives scores for each word in the vocabulary being the next word in the caption 
+        self.fc_out = nn.Linear(hidden_size, vocab_size).to(DEVICE)
+        # Dropout layer
+        self.dropout= nn.Dropout(p=0.5).to(DEVICE)
 
-        if attention:
-            # Pass images through sequential model.
-            #print("0.Images shape: ",images.shape) # Input feature map [batch_size, num_channels(3), height(256), width(256)]
-            features = self.features(images) #Output feature map [batch_size, num_channels(512), height(16), width(16)]
-            #print("1.Features shape: ", features.shape)
-            # Permute the tensor dimensions to [batch_size, height, width, channels]
-            features = features.permute(0, 2, 3, 1)
-            #print("2.Features shape: ", features.shape)  
-            # Flatten the tensor along height and width dimensions to be used in a fully connected
-            features = features.view(features.size(0), -1, features.size(-1))
-            #print("3.Features shape: ", features.shape)
-            features = self.embed(features)
-            #print("4.Features shape: ",features.shape)
-            
-            return features 
+    def forward(self, features, captions, type):
+        features, captions = features.to(DEVICE), captions.to(DEVICE)
+
+        if type=="train":
+            embedded_captions = self.dropout(self.embedding(captions))
+        elif type=="val" or type=="test":
+            embedded_captions = self.embedding(captions)
         
-        else:
-            # Extract features from the base model
-            #print("0.Images shape: ",images.shape)
-            features = self.base_model(images)
-            #print("1.Features shape: ", features.shape)
-            # Apply global average pooling if output is 4D, like VGG
-            #if features.dim() > 2: #this is in case last layer isnt removed, 
-                #features = nn.functional.adaptive_avg_pool2d(features, (1, 1))  # Reduce to (batch_size, 512, 1, 1) ex: (16,512,1,1)
-                #features = features.view(features.size(0), -1)  # Flatten to (batch_size, 512) ex (16,512)
-            # Apply additional layers
-            embeddings = self.embed(self.dropout(self.prelu(features)))
-            #print("2.Embeddings shape: ", embeddings.shape)
-            
-            return embeddings
+        # AOA attention
+        #context, att_weights = self.attention(features)
+        #context = context.unsqueeze(1).repeat(1, embedded_captions.size(1), 1)
+        # Additive attention
+        att_weights = self.attention(features, features.mean(dim=1))  # We use the mean features as the initial hidden state
+        context = torch.sum(features * att_weights.unsqueeze(2), dim=1)  # (batch_size, hidden_size)
+        context = context.unsqueeze(1).repeat(1, embedded_captions.size(1), 1)
         
+        lstm_input = torch.cat((context,embedded_captions), dim=2)
+        lstm_out, _ = self.lstm(lstm_input)
+        outputs = self.fc_out(self.dropout(lstm_out))
+
+        return outputs
+
 class DecoderLSTM(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, attention_size, teacher_forcing):
         super(DecoderLSTM, self).__init__()
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
-        # Word embedding layer: converts words into vectors of fixed size (embed_size)
-        self.embedding = nn.Embedding(vocab_size, embed_size)
-        # LSTM layer
-        self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size, batch_first=True)
-        # Attention layer
-        self.attention = AoA_GatedAttention(hidden_size, attention_size)
-        # Linear layer: maps output of LSTM into the size of the vocabulary
-        # Gives scores for each word in the vocabulary being the next word in the caption 
-        self.fc_out = nn.Linear(hidden_size, vocab_size)
-        # Teacher forcing ratio (if 0: no teacher forcing)
         self.teacher_forcing_ratio = teacher_forcing
 
-    def forward(self, features, captions, attention=True):
-        #print("\nDECODER:")
+        self.embedding = nn.Embedding(vocab_size, embed_size).to(DEVICE)
+        self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size, batch_first=True).to(DEVICE)
+        self.attention = AdditiveAttention(hidden_size, attention_size).to(DEVICE)
+        self.fc_out = nn.Linear(hidden_size, vocab_size).to(DEVICE)
+        self.dropout = nn.Dropout(p=0.5)
 
-        # Apply word embeddings to the captions
-        embedded_captions = self.embedding(captions)
-        #print("0.Embedded captions:", embedded_captions.shape)
+    def forward(self, encoder_outputs, captions, type):
 
-        # Initialize LSTM hidden states
-        #outputs = torch.zeros(batch_size, seq_len, self.vocab_size).to(features.device)
-        #print("0.Outputs preparation: ",outputs.shape)
+        # Move inputs to the correct device
+        encoder_outputs = encoder_outputs.to(DEVICE)
+        captions = captions.to(DEVICE)
 
-        if attention:
-
-            # Get attention-weighted context
-            context, att_weights = self.attention(features)
-            #print("1.Context vector:",context.shape)
-            #print("1.Attention weigths:", att_weights.shape)
-
-            # Expand context vector with the word embeddings size
-            context = context.unsqueeze(1).repeat(1, embedded_captions.size(1), 1)
-            #print("2. Context after expanding to seq len size:", context.shape)
-
-            # Concatenate with word embeddings and input to LSTM
-            lstm_input = torch.cat((context,embedded_captions), dim=2)
-            #print("3. LSTM input:", lstm_input.shape)
-            lstm_out, _ = self.lstm(lstm_input)
-            #print("3. LSTM output:", lstm_out.shape)
-
-            # Pass the LSTM output through the linear layer to get the output scores for each word in the vocabulary
-            outputs = self.fc_out(lstm_out)
-            #print("outputs: ", outputs.shape)
-
-            """inputs = captions[:, 0]  # Start with the <SOS> token
-            pad_idx = 0
-            sos_idx = 1
-            eos_idx = 2
-            unk_idx = 3
-            for t in range(1, seq_len):
-                embedded_input = self.embedding(inputs).unsqueeze(1) # Shape: [batch_size, 1, embed_size]
-                lstm_input = torch.cat((embedded_input, context[:, t - 1:t]), dim=2)  # Shape: [batch_size, 1, embed_size + hidden_size]
-                #print("Input LSTM size:", lstm_input.shape) #[16,11,512]
-                #lstm_out = self.lstm(lstm_input)
-                lstm_out, (h_n, c_n) = self.lstm(lstm_input)
-                # Get predicted output word
-                output = self.fc_out(lstm_out)
-                #print("Output LSTM size:", lstm_out.shape)
-                output = output.squeeze(1)
-                output[:, pad_idx] = float('-inf')  # Set logit for padding token to -inf
-                output[:, sos_idx] = float('-inf') 
-                output[:, eos_idx] = float('-inf') 
-                output[:, unk_idx] = float('-inf')
-                outputs[:, t, :] = output
-                
-                # Use teacher forcing
-                teacher_force = torch.rand(1).item() < self.teacher_forcing_ratio
-                inputs = captions[:, t] if teacher_force else output.argmax(dim=1)
-
-                # Stop if we hit the EOS token in the ground truth sequence
-                if (captions[:, t] == eos_idx).all():
-                    break"""
-
-            return outputs
-
-class AdditiveAttention(nn.Module):
-    def __init__(self, hidden_size, attention_size):
-        super(AdditiveAttention, self).__init__()
-        self.encoder_proj = nn.Linear(hidden_size, attention_size)
-        self.decoder_proj = nn.Linear(hidden_size, attention_size)
-        self.energy = nn.Linear(attention_size, 1)
-        self.softmax = nn.Softmax(dim=1)
-
-    def forward(self, encoder_outputs, decoder_hidden):
-        # Project encoder outputs and decoder hidden state to attention_size
-        encoder_proj = self.encoder_proj(encoder_outputs)  # [batch_size, seq_len, attention_size]
-        decoder_proj = self.decoder_proj(decoder_hidden).unsqueeze(1)  # [batch_size, 1, attention_size]
-        #print(f"# Encoder linear: {encoder_proj.shape}")
-        #print(f"# Decoder linear: {decoder_proj.shape}")
-
-        # Compute  scores
-        scores = torch.tanh(encoder_proj + decoder_proj)  # [batch_size, seq_len, attention_size]
-        scores = self.energy(scores).squeeze(-1)  # [batch_size, seq_len]
-
-        # Compute attention weights over encoder outputs (probabilities)
-        attention_weights = self.softmax(scores)  # [batch_size, seq_len]
-
-        # Compute context vector as weighted sum of encoder outputs
-        context = torch.bmm(attention_weights.unsqueeze(1), encoder_outputs)  # [batch_size, 1, hidden_size]
-        context = context.squeeze(1)  # [batch_size, hidden_size] weighted sum of encoder outputs
-
-        return context, attention_weights
-
-class DecoderLSTM_new(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, attention_size, teacher_forcing):
-        super(DecoderLSTM_new, self).__init__()
-        self.vocab_size = vocab_size
-        self.hidden_size = hidden_size
-        self.teacher_forcing_ratio = teacher_forcing
-
-        self.embedding = nn.Embedding(vocab_size, embed_size)
-        self.lstm = nn.LSTM(embed_size + hidden_size, hidden_size, batch_first=True)
-        self.attention = AdditiveAttention(hidden_size, attention_size)
-        self.fc_out = nn.Linear(hidden_size, vocab_size)
-
-    def forward(self, encoder_outputs, captions):
-        # encoder_outputs [batch_size, seq_len, hidden_size]
-        # captions [batch_size, max_len]
+        if type == "val" or type == "test":
+            self.teacher_forcing_ratio = 0
 
         batch_size, max_len = captions.size(0), captions.size(1)
-        outputs = torch.zeros(batch_size, max_len, self.vocab_size)
+        outputs = torch.zeros(batch_size, max_len, self.vocab_size).to(DEVICE)
 
         # Initialize hidden and cell states for the LSTM
-        h, c = torch.zeros(1, batch_size, self.hidden_size), \
-               torch.zeros(1, batch_size, self.hidden_size)
+        h, c = torch.zeros(1, batch_size, self.hidden_size).to(DEVICE), \
+               torch.zeros(1, batch_size, self.hidden_size).to(DEVICE)
 
         # Start decoding with the <SOS> token
         inputs = captions[:, 0]  # [batch_size]
@@ -231,6 +150,7 @@ class DecoderLSTM_new(nn.Module):
             #print("3. LSTM input:", lstm_input.shape)
 
             lstm_out, (h, c) = self.lstm(lstm_input, (h, c))
+            lstm_out = self.dropout(lstm_out)
             #print("3. LSTM output:", lstm_out.shape)
             #print("Hidden state: ", h.shape)
 
@@ -245,7 +165,114 @@ class DecoderLSTM_new(nn.Module):
 
         return outputs
 
+class DecoderLSTM_noAttention(nn.Module):
+    def __init__(self, embed_size, hidden_size, vocab_size, teacher_forcing):
+        super(DecoderLSTM_noAttention, self).__init__()
+        self.vocab_size = vocab_size
+        self.hidden_size = hidden_size
+        self.teacher_forcing_ratio = teacher_forcing
 
+        self.embedding = nn.Embedding(vocab_size, embed_size).to(DEVICE)
+        self.lstm = nn.LSTM(embed_size, hidden_size, batch_first=True).to(DEVICE)
+        self.fc_out = nn.Linear(hidden_size, vocab_size).to(DEVICE)
+
+        # Fully connected layer to initialize hidden states from encoder outputs
+        self.init_h = nn.Linear(hidden_size, hidden_size).to(DEVICE)
+        self.init_c = nn.Linear(hidden_size, hidden_size).to(DEVICE)
+
+    def forward(self, encoder_outputs, captions, type):
+        # Move inputs to the correct device
+        encoder_outputs = encoder_outputs.to(DEVICE)
+        captions = captions.to(DEVICE)
+
+        if type == "val" or type == "test":
+            self.teacher_forcing_ratio = 0
+
+        batch_size, max_len = captions.size(0), captions.size(1)
+        outputs = torch.zeros(batch_size, max_len, self.vocab_size).to(DEVICE)
+
+        # Compute the initial hidden and cell states from encoder outputs (e.g., mean of encoder outputs)
+        encoder_summary = encoder_outputs.mean(dim=1)  # [batch_size, hidden_size]
+        h = self.init_h(encoder_summary).unsqueeze(0)  # [1, batch_size, hidden_size]
+        c = self.init_c(encoder_summary).unsqueeze(0)  # [1, batch_size, hidden_size]
+
+        # Start decoding with the <SOS> token
+        inputs = captions[:, 0]  # [batch_size]
+
+        for t in range(1, max_len):
+            embedded_captions = self.embedding(inputs).unsqueeze(1)  # [batch_size, 1, embed_size]
+            
+            # LSTM step without attention
+            lstm_out, (h, c) = self.lstm(embedded_captions, (h, c))
+
+            # Generate output word scores
+            output = self.fc_out(lstm_out.squeeze(1))  # [batch_size, vocab_size]
+            outputs[:, t, :] = output
+
+            teacher_force = torch.rand(1).item() < self.teacher_forcing_ratio
+            inputs = captions[:, t] if teacher_force else output.argmax(dim=1)
+
+        return outputs
+
+
+class FirstAdditiveAttention(nn.Module):
+    def __init__(self, hidden_size, attention_size):
+        super(FirstAdditiveAttention, self).__init__()
+
+        #self.project = nn.Linear(hidden_size,attention_size).to(DEVICE)
+        self.attention_layer = nn.Linear(hidden_size + hidden_size, 1).to(DEVICE)
+
+    def forward(self, encoder_out, h_prev): 
+        # Project encoder outputs and decoder hidden state to attention_size
+        #encoder_out = self.project(encoder_out).to(DEVICE)  # [batch_size, seq_len, attention_size]
+        #h_prev = self.project(h_prev).unsqueeze(1).to(DEVICE)  # [batch_size, 1, attention_size]
+        #we want to have a prev_h that matches the size of encoder_out to be able to concat them
+        h_prev_repeated = h_prev.unsqueeze(1).repeat(1, encoder_out.shape[1], 1) 
+
+        #we concattenate both tensors to have an nput for the fully connected layer which will then output the attention weights
+        att_input = torch.cat((encoder_out, h_prev_repeated), dim=2)                                                          
+        
+        #we get the attention scores for the "pixel" we're looking at each step
+        att_scores = self.attention_layer(att_input) # [32, 196, 1][batch_size, num_pixels, 1]
+
+        #Get rid of the last dimension
+        att_scores = att_scores.squeeze(2) # [32, 196][batch_size, num_pixels]
+
+        #Make all the scores sum up to 1 via softmax, hence we'll get the weights
+        att_weights = F.softmax(att_scores, dim=1) #[32, 196][batch_size, num_pixels]
+
+        return att_weights #[32, 196][batch_size, num_pixels]
+    
+class AdditiveAttention(nn.Module):
+    def __init__(self, hidden_size, attention_size):
+        super(AdditiveAttention, self).__init__()
+        self.encoder_proj = nn.Linear(hidden_size, attention_size).to(DEVICE)
+        self.decoder_proj = nn.Linear(hidden_size, attention_size).to(DEVICE)
+        self.energy = nn.Linear(attention_size, 1).to(DEVICE)
+        self.softmax = nn.Softmax(dim=1)
+
+    def forward(self, encoder_outputs, decoder_hidden):
+        # Move inputs to the correct device
+        encoder_outputs = encoder_outputs.to(DEVICE)
+        decoder_hidden = decoder_hidden.to(DEVICE)
+        # Project encoder outputs and decoder hidden state to attention_size
+        encoder_proj = self.encoder_proj(encoder_outputs).to(DEVICE)  # [batch_size, seq_len, attention_size]
+        decoder_proj = self.decoder_proj(decoder_hidden).unsqueeze(1).to(DEVICE)  # [batch_size, 1, attention_size]
+        #print(f"# Encoder linear: {encoder_proj.shape}")
+        #print(f"# Decoder linear: {decoder_proj.shape}")
+
+        # Compute  scores
+        scores = torch.tanh(encoder_proj + decoder_proj)  # [batch_size, seq_len, attention_size]
+        scores = self.energy(scores).squeeze(-1).to(DEVICE)  # [batch_size, seq_len]
+
+        # Compute attention weights over encoder outputs (probabilities)
+        attention_weights = self.softmax(scores).to(DEVICE)  # [batch_size, seq_len]
+
+        # Compute context vector as weighted sum of encoder outputs
+        context = torch.bmm(attention_weights.unsqueeze(1), encoder_outputs)  # [batch_size, 1, hidden_size]
+        context = context.squeeze(1).to(DEVICE)  # [batch_size, hidden_size] weighted sum of encoder outputs
+
+        return context, attention_weights
 class AoA_GatedAttention(nn.Module):
     def __init__(self, hidden_size, attention_size):
         super(AoA_GatedAttention, self).__init__()
@@ -267,11 +294,11 @@ class AoA_GatedAttention(nn.Module):
         
     def forward(self, features):
         # Step 1: Apply initial attention
-        attn_weights = torch.tanh(self.attn(features)) #[batch_size, 256, attention_size]
-        attn_scores = self.context(attn_weights) #[batch_size, 256, 1]
+        attn_scores = torch.tanh(self.attn(features)) #[batch_size, 256, attention_size]
+        attn_scores = self.context(attn_scores) #[batch_size, 256, 1]
         
         # Normalize attention scores using softmax
-        attn_weights = torch.softmax(attn_scores, dim=1) #[batch_size, 256, 1]
+        #attn_weights = torch.softmax(attn_scores, dim=1) #[batch_size, 256, 1]
         
         # Step 2: Apply AoA (Attention on Attention)
         attn_weights_on_weights = torch.tanh(self.attn_on_attn(attn_scores))
@@ -289,16 +316,19 @@ class AoA_GatedAttention(nn.Module):
         return context, gated_attn_weights
 
 class CaptioningModel(nn.Module):
-    def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size, attention_size):
+    def __init__(self, base_model, model_name, embed_size, hidden_size, vocab_size, attention_size, method=2):
         super(CaptioningModel, self).__init__()
         self.name = model_name
-        self.encoder = EncoderCNN(base_model, model_name, embed_size)
-        #print("ENCODER: ", self.encoder)
-        self.decoder = DecoderLSTM_new(embed_size, hidden_size, vocab_size, attention_size, teacher_forcing=0.5) #with attention
-        #print("DECODER: ", self.decoder)
+        self.encoder = EncoderCNN(base_model, model_name, embed_size).to(DEVICE)
+        if method == 1: # Overfitting
+            self.decoder = FirstDecoderLSTM(embed_size, hidden_size, vocab_size, attention_size).to(DEVICE)
+        if method == 2:
+            self.decoder = DecoderLSTM(embed_size, hidden_size, vocab_size, attention_size, teacher_forcing=0.7).to(DEVICE)
+        if method == 3:
+            self.decoder = DecoderLSTM_noAttention(embed_size, hidden_size, vocab_size, teacher_forcing=0.7)
 
-    def forward(self, images, captions):
+    def forward(self, images, captions, type):
         features = self.encoder(images)
-        outputs = self.decoder(features, captions)
+        outputs = self.decoder(features, captions, type)
         
         return outputs

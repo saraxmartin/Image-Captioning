@@ -1,7 +1,7 @@
 import os
 from torch.utils.data import Dataset
 from torchvision import transforms
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import re
 import nltk
 from nltk.stem import WordNetLemmatizer
@@ -56,27 +56,34 @@ class FoodDataset(Dataset):
             # Obtain image name without ending format
             image_name = os.path.splitext(os.path.basename(image_path))[0]
              
-            # Get captions for image
-            image_caption = captions_df.loc[captions_df['Image_Name'] == image_name, 'Title'].squeeze()
+            # Get captions for the image
+            image_caption_series = captions_df.loc[captions_df['Image_Name'] == image_name, 'Title']
             
-            # If no title exists, generate one using format_recipe_name
-            if pd.isna(image_caption):
+            if image_caption_series.empty:
+              #print(f"No row found for image: {image_name}. Skipping image.")
+              continue
+            
+            if pd.isna(image_caption_series).any():  # No title
+                print(f"No title found for image: {image_name}")
+                # Generate title
                 image_caption = format_recipe_name(image_name)
-
-            # Error
-            if not isinstance(image_caption, str):
+                #print(f"Generated title for image {image_name}: {image_caption}")
+            else:
+                image_caption = image_caption_series.iloc[0]
+            
+            try:
+                with Image.open(full_path) as img:
+                    width, height = img.size
+                    self.data_properties['image_width'].append(width)
+                    self.data_properties['image_height'].append(height)
+            except (UnidentifiedImageError, IOError) as e:
+                #print(f"Error opening image {full_path}: {e}. Skipping.")
                 continue
             
             # Append caption and image to the lists
             self.images.append(full_path)
             self.captions.append(image_caption)
             
-            # Load image to get properties
-            with Image.open(full_path) as img:
-                width, height = img.size
-                self.data_properties['image_width'].append(width)
-                self.data_properties['image_height'].append(height)
-
             # Calculate statistics from captions
             self.data_properties['title_length'].append(len(self.preprocess_captions(image_caption)))
             self.data_properties['lexicon'].update(self.preprocess_captions(image_caption))
@@ -90,7 +97,7 @@ class FoodDataset(Dataset):
         self.build_vocab()
     
     def build_vocab(self):
-        special_tokens = ["<PAD>","<SOS>", "<EOS>", "<UNK>"]
+        special_tokens = ["<SOS>", "<EOS>","<PAD>", "<UNK>"]
         vocab = special_tokens + sorted(self.data_properties['lexicon'])
         self.word2idx = {word: idx for idx, word in enumerate(vocab)}
         self.idx2word = {idx: word for word, idx in self.word2idx.items()}

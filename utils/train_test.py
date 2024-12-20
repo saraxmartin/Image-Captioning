@@ -22,14 +22,14 @@ rouge = evaluate.load('rouge')
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-RESULTS_CSV = "results/results.csv"
+RESULTS_CSV = f"results/results_{config.NUM_CONFIG}.csv"
 
 def initialize_storage():
     # Ensure the directories exists
     os.makedirs("results/", exist_ok=True)
     os.makedirs("results/statistics", exist_ok=True)
     os.makedirs("utils/saved_models", exist_ok=True)
-    results_csv = 'results/results.csv'
+    results_csv = f'results/results_{config.NUM_CONFIG}.csv'
     captions_csv = f'results/captions_{config.NUM_CONFIG}.csv'
     header1 = ['Config', 'Model', 'Type', 'Epoch', 'Loss', 'Accuracy', 'Bleu1' , 'Bleu2', 'Rouge', 'Meteor']
     header2 = ['Config', 'Model', 'Type', 'Epoch', 'Predicted', 'GT']
@@ -95,11 +95,6 @@ def compute_metrices(prediction, true_captions, metrices_dict):
     total = 0
     count = 0
     for pred, ref in zip(pred_cleaned, gt_cleaned):
-        """for p, r in zip(pred,ref[0]):
-            print(f"P {p}, Ref: {r}")
-            if p == r:
-                count+=1
-            total+=1"""
         # Compare token by token
         # Split the predictions and references into words (tokens)
         pred_tokens = pred.split()  # Split predicted sentence into tokens
@@ -160,7 +155,7 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
         optimizer.zero_grad()
 
         # Forward pass
-        outputs = model(images, captions)
+        outputs = model(images, captions, type)
         #print("Shape of outputs before reshape:", outputs.shape)
 
         # Get predictions
@@ -191,11 +186,12 @@ def train_model(model, train_loader, dataset, optimizer, criterion, scheduler, e
         # Metrices
         metrices = compute_metrices(predicted_texts,true_texts,metrices)
 
+    total_loss = total_loss / len(train_loader)
     metrices = {key: value / len(train_loader) for key, value in metrices.items()}
     write_results(model,epoch,type,total_loss,metrices)
     write_captions_results(model,type,epoch,predicted_texts,true_texts)
 
-    scheduler.step()
+    scheduler.step(total_loss)
 
 def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
     model.eval()
@@ -211,7 +207,7 @@ def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
             images, captions = images.to(DEVICE), captions.to(DEVICE)
 
             # Output
-            outputs = model(images,captions)
+            outputs = model(images,captions,type)
 
             # Predictions
             _, preds = torch.max(outputs,dim=2)
@@ -228,6 +224,7 @@ def test_model(model, test_loader, dataset, criterion, epoch, type="test"):
             # Metrices
             metrices = compute_metrices(predicted_texts,true_texts,metrices)
 
+    total_loss = total_loss / len(test_loader)
     metrices = {key: value / len(test_loader) for key, value in metrices.items()}
     write_results(model,epoch,type,total_loss,metrices)
     write_captions_results(model,type,epoch,predicted_texts,true_texts)
