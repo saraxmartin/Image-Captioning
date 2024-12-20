@@ -9,7 +9,9 @@ Image Captioning challenge
 
 * utils
 
-    - **dataset.py**: creation of the dataset for both approaches
+    - **dataset.py**: creation of the dataloader
+    - **train_test.py**: training and testing functions
+    - **model.py**: models
 
 * config.py
 
